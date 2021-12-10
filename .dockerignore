@@ -1,0 +1,5 @@
+*
+!src/**/*
+!bin
+!package-lock.json
+!package.json

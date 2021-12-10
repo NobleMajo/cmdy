@@ -1,0 +1,23 @@
+{
+  "name": "cmdy",
+  "version": "1.0.0",
+  "description": "A cmd parser framework for node js/ts cli apps.",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "cli",
+    "cmd",
+    "arg",
+    "command",
+    ""
+  ],
+  "author": "HalsMaulMajo",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^16.11.12",
+    "nodemon": "^2.0.15",
+    "typescript": "^4.5.3"
+  }
+}
