@@ -1,8 +1,15 @@
-import cmdy, { Flag, parseCmd, CmdDefinition } from "../src/index"
+import { Flag, parseCmd, CmdDefinition } from "../src/index"
 
 const force: Flag = {
     name: "force",
     description: "The force flag",
+}
+
+const port: Flag = {
+    name: "port",
+    description: "The port flag",
+    shorthand: "P",
+    types: ["number"]
 }
 
 const publish: Flag = {
@@ -45,10 +52,11 @@ const run: CmdDefinition = {
     flags: [
         removeF,
         publish,
-        volume
+        volume,
+        port
     ],
     allowUnknownArgs: true,
-    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.data)
+    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.flags, res.valueFlags)
 }
 
 const start: CmdDefinition = {
@@ -56,9 +64,10 @@ const start: CmdDefinition = {
     description: "The start command",
     group: "management",
     flags: [
-        removeF
+        removeF,
+        port
     ],
-    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.data)
+    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.flags, res.valueFlags)
 }
 
 const create: CmdDefinition = {
@@ -70,7 +79,7 @@ const create: CmdDefinition = {
         publish,
         removeF
     ],
-    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.data)
+    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.flags, res.valueFlags)
 }
 
 const remove: CmdDefinition = {
@@ -80,7 +89,7 @@ const remove: CmdDefinition = {
     flags: [
         force
     ],
-    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.data)
+    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.flags, res.valueFlags)
 }
 
 const stop: CmdDefinition = {
@@ -90,7 +99,7 @@ const stop: CmdDefinition = {
     flags: [
         force
     ],
-    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.data)
+    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.flags, res.valueFlags)
 }
 
 const search: CmdDefinition = {
@@ -98,7 +107,7 @@ const search: CmdDefinition = {
     description: "The search command",
     flags: [
     ],
-    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.data)
+    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.flags, res.valueFlags)
 }
 
 const wait: CmdDefinition = {
@@ -106,7 +115,7 @@ const wait: CmdDefinition = {
     description: "The wait command",
     flags: [
     ],
-    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.data)
+    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.flags, res.valueFlags)
 }
 
 const events: CmdDefinition = {
@@ -114,7 +123,7 @@ const events: CmdDefinition = {
     description: "The wait command",
     flags: [
     ],
-    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.data)
+    exe: async (res) => console.log("cmd: ", res.cmd.name + "\nres-data:\n", res.flags, res.valueFlags)
 }
 
 const root: CmdDefinition = {
@@ -129,15 +138,14 @@ const root: CmdDefinition = {
         events,
         wait,
         search
-    ]
+    ],
+    //exe: async () => console.log("asdasdd")
 }
 
-const res = parseCmd({
+parseCmd({
     cmd: root,
     globalFlags: [
         verbose,
         version
     ]
-})
-
-res.exe()
+}).exe()
