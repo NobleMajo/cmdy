@@ -45,14 +45,13 @@ describe('base cmd tests', () => {
         expect(exec).is.true
 
         expect(res).is.not.undefined
-        expect(res.data).is.not.undefined
-        expect(res.data.flags).is.not.undefined
-        expect(getType(res.data.flags)).is.equals("array")
-        expect(res.data.flags.length).is.equals(0)
+        expect(res.flags).is.not.undefined
+        expect(getType(res.flags)).is.equals("array")
+        expect(res.flags.length).is.equals(0)
 
-        expect(res.data.valueFlags).is.not.undefined
-        expect(getType(res.data.valueFlags)).is.equals("object")
-        expect(Object.keys(res.data.valueFlags).length).is.equals(0)
+        expect(res.valueFlags).is.not.undefined
+        expect(getType(res.valueFlags)).is.equals("object")
+        expect(Object.keys(res.valueFlags).length).is.equals(0)
     })
 
     it("cmd without args infront", async () => {
@@ -67,14 +66,13 @@ describe('base cmd tests', () => {
         expect(exec).is.true
 
         expect(res).is.not.undefined
-        expect(res.data).is.not.undefined
-        expect(res.data.flags).is.not.undefined
-        expect(getType(res.data.flags)).is.equals("array")
-        expect(res.data.flags.length).is.equals(0)
+        expect(res.flags).is.not.undefined
+        expect(getType(res.flags)).is.equals("array")
+        expect(res.flags.length).is.equals(0)
 
-        expect(res.data.valueFlags).is.not.undefined
-        expect(getType(res.data.valueFlags)).is.equals("object")
-        expect(Object.keys(res.data.valueFlags).length).is.equals(0)
+        expect(res.valueFlags).is.not.undefined
+        expect(getType(res.valueFlags)).is.equals("object")
+        expect(Object.keys(res.valueFlags).length).is.equals(0)
     })
 
     it("cmd without args infront", async () => {
@@ -90,13 +88,12 @@ describe('base cmd tests', () => {
         expect(exec).is.true
 
         expect(res).is.not.undefined
-        expect(res.data).is.not.undefined
-        expect(res.data.flags).is.not.undefined
-        expect(getType(res.data.flags)).is.equals("array")
-        expect(res.data.flags.length).is.equals(0)
+        expect(res.flags).is.not.undefined
+        expect(getType(res.flags)).is.equals("array")
+        expect(res.flags.length).is.equals(0)
 
-        expect(res.data.valueFlags).is.not.undefined
-        expect(getType(res.data.valueFlags)).is.equals("object")
-        expect(Object.keys(res.data.valueFlags).length).is.equals(0)
+        expect(res.valueFlags).is.not.undefined
+        expect(getType(res.valueFlags)).is.equals("object")
+        expect(Object.keys(res.valueFlags).length).is.equals(0)
     })
 })

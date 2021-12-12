@@ -1,4 +1,3 @@
-
 exports = module.exports = parseCmd
 export default exports
 
@@ -10,12 +9,19 @@ export class CmdError extends Error {
     }
 }
 
+export interface InputValidator {
+    name: string,
+    validate: (value: any) => Promise<any | undefined>
+}
+
+export type FlagValueTypes = "string" | "number" | "boolean" | InputValidator
+
 export interface Flag {
     name: string,
     description: string,
     required?: boolean,
     default?: string | number | boolean,
-    types?: ("string" | "number" | "boolean")[]
+    types?: FlagValueTypes[]
     shorthand?: string,
     alias?: string[],
     control?: (value: string) => Promise<string>
@@ -37,16 +43,11 @@ export interface ValueFlags {
     [key: string]: string[]
 }
 
-export interface CmdData {
-    cmd: string,
+export interface CmdResult {
+    cmd: CmdDefinition,
     args: string[],
     flags: string[]
     valueFlags: ValueFlags
-}
-
-export interface CmdResult {
-    cmd: CmdDefinition,
-    data: CmdData,
     parents: [CmdDefinition, ...CmdDefinition[]],
     settings: CmdParserSettings,
     exe: () => Promise<CmdResult>,
@@ -65,10 +66,7 @@ export function getProcessArgs(): string[] {
         }
         args.shift()
     }
-    return [
-        "fleetform",
-        ...args
-    ]
+    return args
 }
 
 export const defaultCmdDefinitionSettings = {
@@ -80,16 +78,35 @@ export const defaultCmdDefinitionSettings = {
     group: undefined,
 }
 
-export function fillCmdDefinitionRecursive(cmd: CmdDefinition): CmdDefinition {
+export function fillCmdDefinitionRecursive(
+    cmd: CmdDefinition,
+    globalFlags: Flag[],
+    helpFlag: Flag
+): CmdDefinition {
     const cmd2: CmdDefinition = {
         ...defaultCmdDefinitionSettings,
         ...cmd
     }
+    cmd2.flags = [
+        ...globalFlags,
+        ...cmd2.flags,
+        helpFlag
+    ]
 
     cmd2.cmds = cmd2.cmds.map(
-        (subCmd: CmdDefinition) => fillCmdDefinitionRecursive(subCmd)
+        (subCmd: CmdDefinition) => fillCmdDefinitionRecursive(
+            subCmd,
+            globalFlags,
+            helpFlag
+        )
     )
-    return cmd
+    return cmd2
+}
+
+export const helpFlag: Flag = {
+    name: "help",
+    description: "Shows this help output",
+    shorthand: "h",
 }
 
 export interface CmdParserOptions {
@@ -98,14 +115,16 @@ export interface CmdParserOptions {
     helpWords?: string[],
     globalFlags?: Flag[]
     globalHelpMsg?: string | undefined,
-    helpGeneratorFunction?: HelpGenerator
+    helpGeneratorFunction?: HelpGenerator,
+    helpFlag?: Flag
 }
 
 export interface CmdParserSettings extends CmdParserOptions {
     helpWords: string[],
     globalFlags: Flag[]
     globalHelpMsg: string | undefined,
-    helpGeneratorFunction: HelpGenerator
+    helpGeneratorFunction: HelpGenerator,
+    helpFlag: Flag
 }
 
 export const defaultCmdParserSettings: CmdParserSettings = {
@@ -114,7 +133,8 @@ export const defaultCmdParserSettings: CmdParserSettings = {
     helpWords: ["-h", "--help"],
     globalFlags: [],
     globalHelpMsg: undefined,
-    helpGeneratorFunction: defaultHelpGenerator
+    helpGeneratorFunction: defaultHelpGenerator,
+    helpFlag: helpFlag
 }
 
 export function parseCmd(
@@ -124,40 +144,45 @@ export function parseCmd(
         ...defaultCmdParserSettings,
         ...options,
     }
-    settings.cmd = fillCmdDefinitionRecursive(settings.cmd)
+    settings.cmd = fillCmdDefinitionRecursive(
+        settings.cmd,
+        settings.globalFlags,
+        settings.helpFlag
+    )
     if (
         settings.args.length > 0 &&
         settings.args[0] == settings.cmd.name
     ) {
         settings.args.shift()
     }
-    let flagsSet: boolean = false
-    let err: CmdError | undefined
-    let currentCmd: CmdDefinition = settings.cmd
-    let parents: [CmdDefinition, ...CmdDefinition[]] = [settings.cmd]
-    let flags: Flag[] = [
-        ...(currentCmd.flags ?? []),
-        ...(settings.globalFlags ?? [])
-    ]
-    const cmdData: CmdData = {
-        cmd: settings.args.shift(),
+    const res: CmdResult = {
+        cmd: settings.cmd,
         args: [],
         flags: [],
         valueFlags: {},
+        parents: [settings.cmd],
+        settings: settings,
+        err: undefined,
+        exe: undefined as any,
+        meta: {},
+        help: false,
+        emptyCmd: false,
     }
 
+    let flagsSet: boolean = false
+
     // create value flags arrays
-    for (let index2 = 0; index2 < flags.length; index2++) {
-        const flag = flags[index2]
-        if (!cmdData.valueFlags[flag.name]) {
-            cmdData.valueFlags[flag.name] = []
+    for (let index2 = 0; index2 < res.cmd.flags.length; index2++) {
+        const flag = res.cmd.flags[index2]
+        if (!res.valueFlags[flag.name]) {
+            res.valueFlags[flag.name] = []
         }
     }
 
     try {
         // parse flags to 
-        for (let index2 = 0; index2 < flags.length; index2++) {
-            const flag = flags[index2]
+        for (let index2 = 0; index2 < res.cmd.flags.length; index2++) {
+            const flag = res.cmd.flags[index2]
             flag.name = flag.name.toLowerCase()
             if (
                 flag.alias &&
@@ -169,15 +194,16 @@ export function parseCmd(
         }
 
         for (let index = 0; index < settings.args.length; index++) {
-            const arg = settings.args[index]
+            const arg: string = settings.args[index]
+            const lowerArg: string = arg.toLowerCase()
             if (arg == "") {
                 continue
             } else if (
-                arg.toLowerCase() == "--help" ||
-                arg.toLowerCase() == "-h"
+                lowerArg == "--help" ||
+                lowerArg == "-h"
             ) {
-                if (!cmdData.flags.includes("help")) {
-                    cmdData.flags.push("help")
+                if (!res.flags.includes("help")) {
+                    res.flags.push("help")
                 }
             } else if (arg.startsWith("--")) {
                 flagsSet = true
@@ -189,8 +215,8 @@ export function parseCmd(
                     flagName = flagName.substring(0, equalIndex)
                 }
                 let found: boolean = false
-                for (let index2 = 0; index2 < flags.length; index2++) {
-                    const flag = flags[index2]
+                for (let index2 = 0; index2 < res.cmd.flags.length; index2++) {
+                    const flag = res.cmd.flags[index2]
                     if (
                         flag.name.toLowerCase() == flagName ||
                         (flag.alias && flag.alias.includes(flagName)
@@ -221,15 +247,45 @@ export function parseCmd(
                                 }
                                 flagValue = flagValue.slice(1, -1)
                             }
-                            cmdData.valueFlags[flag.name].push(
-                                flagValue
-                            )
+                            let value: any = undefined
+                            let tmp: any = flagValue.toLowerCase()
+                            if (flag.types.includes("boolean")) {
+                                if (tmp == "true") {
+                                    value = true
+                                } else if (tmp == "false") {
+                                    value = false
+                                }
+                            }
+                            if (flag.types.includes("number")) {
+                                tmp = Number(flagValue)
+                                if (tmp != NaN) {
+                                    value = flagValue
+                                }
+                            }
+                            if (flag.types.includes("string")) {
+                                value = flagValue
+                            }
+                            flag.types.forEach((type) => {
+                                if (typeof type == "string") {
+                                    return
+                                }
+                                value = type.validate(flagValue)
+                            })
+                            if (value == undefined) {
+                                throw new CmdError(
+                                    "Type of '" + flag.name + "' needs to be a '" +
+                                    flag.types.map(
+                                        (t) => typeof t == "string" ? t : t.name
+                                    ).join("', '") + "'!"
+                                )
+                            }
+                            res.valueFlags[flag.name].push(value)
                         } else {
                             if (flagValue.length > 0) {
                                 throw new CmdError("Too many values for flag: \"--" + flag.name + "\"")
                             }
-                            if (!cmdData.flags.includes(flag.name)) {
-                                cmdData.flags.push(flag.name)
+                            if (!res.flags.includes(flag.name)) {
+                                res.flags.push(flag.name)
                             }
                         }
                         found = true
@@ -245,9 +301,12 @@ export function parseCmd(
                 for (let index2 = shorthands.length - 1; index2 >= 0; index2--) {
                     const shorthand = shorthands[index2]
                     let found: boolean = false
-                    for (let index3 = 0; index3 < flags.length; index3++) {
-                        const flag = flags[index3];
-                        if (flag.shorthand && flag.shorthand == shorthand) {
+                    for (let index3 = 0; index3 < res.cmd.flags.length; index3++) {
+                        const flag = res.cmd.flags[index3];
+                        if (
+                            flag.shorthand &&
+                            flag.shorthand == shorthand
+                        ) {
                             settings.args = [
                                 ...settings.args.slice(0, index + 1),
                                 "--" + flag.name,
@@ -269,44 +328,44 @@ export function parseCmd(
             } else {
                 const argName = arg.toLowerCase()
                 let found: boolean = false
-                for (let index = 0; currentCmd.cmds && index < currentCmd.cmds.length; index++) {
-                    const CmdDefinition = currentCmd.cmds[index]
+                for (let index = 0; res.cmd.cmds && index < res.cmd.cmds.length; index++) {
+                    const cmd = res.cmd.cmds[index]
+
                     if (
-                        CmdDefinition.name == argName ||
+                        cmd.name == argName ||
                         (
-                            CmdDefinition.alias &&
-                            CmdDefinition.alias.includes(argName)
+                            cmd.alias &&
+                            cmd.alias.includes(argName)
                         )
                     ) {
                         if (flagsSet) {
-                            throw new CmdError("You can't set flags befor the defined argument: \"" + CmdDefinition.name + "\"")
+                            throw new CmdError(
+                                "You can't set flags before the defined argument: \"" +
+                                cmd.name +
+                                "\""
+                            )
                         }
-                        currentCmd = CmdDefinition
-                        parents.push(CmdDefinition)
-                        flags = [
-                            ...(currentCmd.flags ?? []),
-                            ...(settings.globalFlags ?? [])
-                        ]
+                        res.cmd = cmd
+                        res.parents.push(cmd)
                         found = true
                         break
                     }
                 }
                 if (
                     !found &&
-                    !currentCmd.allowUnknownArgs
+                    !res.cmd.allowUnknownArgs
                 ) {
                     throw new CmdError("Unknown command argument: \"" + arg + "\"")
                 }
-                cmdData.args.push(arg)
+                res.args.push(arg)
             }
         }
 
-        for (let index = 0; index < currentCmd.flags.length; index++) {
-            const flag = currentCmd.flags[index]
-
+        for (let index = 0; index < res.cmd.flags.length; index++) {
+            const flag = res.cmd.flags[index]
             if (
                 flag.types &&
-                !Object.keys(cmdData.valueFlags).includes(flag.name)
+                !Object.keys(res.valueFlags).includes(flag.name)
             ) {
                 const type = typeof flag.default
                 if (
@@ -314,12 +373,12 @@ export function parseCmd(
                     type == "number" ||
                     type == "boolean"
                 ) {
-                    cmdData.valueFlags[flag.name] = ["" + flag.default]
+                    res.valueFlags[flag.name] = ["" + flag.default]
                 } else if (flag.required) {
                     throw new CmdError("Flag '" + flag.name + "' is required but not set!")
                 }
             } else if (
-                !cmdData.flags.includes(flag.name)
+                !res.flags.includes(flag.name)
             ) {
                 const type = typeof flag.default
                 if (
@@ -327,33 +386,25 @@ export function parseCmd(
                     type == "number" ||
                     type == "boolean"
                 ) {
-                    cmdData.valueFlags[flag.name] = ["" + flag.default]
+                    res.valueFlags[flag.name] = ["" + flag.default]
                 } else if (flag.required) {
                     throw new CmdError("Flag '" + flag.name + "' is required but not set!")
                 }
             }
         }
-    } catch (err2) {
-        err = err2
+    } catch (err) {
+        res.err = err
     }
 
-    const res: CmdResult = {
-        cmd: currentCmd,
-        data: cmdData,
-        parents: parents,
-        settings: settings,
-        err: err,
-        exe: undefined as any,
-        meta: {},
-        help: cmdData.flags.includes("help"),
-        emptyCmd: !currentCmd.exe,
-    }
+    res.exe = res.err ? (() => { throw res.err }) : res.exe
+    res.emptyCmd = res.cmd.exe ? false : true
+    res.help = res.emptyCmd || res.flags.includes("help")
 
     if (res.help || res.emptyCmd) {
         return settings.helpGeneratorFunction(res)
     }
     res.exe = async () => {
-        currentCmd.exe(res)
+        res.cmd.exe(res)
         return res
     }
     return res
@@ -368,15 +419,10 @@ export type HelpGenerator = (
 export function defaultHelpGenerator(
     data: CmdResult,
 ): CmdResult {
-    const flags: Flag[] = [
-        ...(data.settings.globalFlags ?? []),
-        ...(data.cmd.flags ?? [])
-    ]
-
     let message: string = "# " + data.cmd.name.toUpperCase() + " #"
     message += "\n\nUsage: " + data.parents.map((a) => a.name).join(" ")
 
-    if (flags.length > 0) {
+    if (data.cmd.flags.length > 0) {
         message += " [OPTIONS]"
     }
 
@@ -390,18 +436,12 @@ export function defaultHelpGenerator(
 
     message += "\n\n" + data.cmd.description
 
-    flags.push({
-        name: "help",
-        shorthand: "h",
-        description: "Show the command help dialog."
-    })
-
-    if (flags.length > 0) {
+    if (data.cmd.flags.length > 0) {
         message += "\n\nOptions:\n"
         const options: string[] = []
         let biggest: number = 0
-        for (let index = 0; index < flags.length; index++) {
-            const flag = flags[index]
+        for (let index = 0; index < data.cmd.flags.length; index++) {
+            const flag = data.cmd.flags[index]
             let flagMsg: string
             if (flag.shorthand) {
                 flagMsg = "  -" + flag.shorthand + ", --" + flag.name
@@ -409,7 +449,7 @@ export function defaultHelpGenerator(
                 flagMsg = "      --" + flag.name
             }
             if (flag.types && flag.types.length > 0) {
-                flagMsg += " [" + flag.types.join(" | ") + "]"
+                flagMsg += " [" + flag.types.map((t) => typeof t == "string" ? t : t.name).join(" | ") + "]"
             }
             if (flagMsg.length > biggest) {
                 biggest = flagMsg.length
@@ -420,7 +460,7 @@ export function defaultHelpGenerator(
             while (options[index].length <= biggest) {
                 options[index] += " "
             }
-            options[index] += flags[index].description
+            options[index] += data.cmd.flags[index].description
         }
         message += options.join("\n")
     }
