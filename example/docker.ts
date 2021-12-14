@@ -1,4 +1,4 @@
-import { Flag, parseCmd, CmdDefinition } from "../src/index"
+import { Flag, parseCmd, CmdDefinition, CmdError } from "../src/index"
 
 const force: Flag = {
     name: "force",
@@ -8,14 +8,14 @@ const force: Flag = {
 const port: Flag = {
     name: "port",
     description: "The port flag",
-    shorthand: "P",
+    shorthand: "p",
     types: ["number"]
 }
 
 const publish: Flag = {
     name: "publish",
     description: "The publish flag",
-    shorthand: "p",
+    shorthand: "P",
     types: ["string"]
 }
 

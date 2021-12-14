@@ -21,7 +21,6 @@
 - [Getting started](#getting-started)
   - [1. Install package](#1-install-package)
   - [2. Add example code](#2-add-example-code)
-- [future features / ideas](#future-features--ideas)
 - [contribution](#contribution)
 
 # Features
@@ -51,11 +50,82 @@ npm i cmdy
 
 ## 2. Add example code
 ```ts
+import { Flag, parseCmd, CmdDefinition } from "../src/index"
 
+const force: Flag = {
+    name: "force",
+    description: "The force flag",
+}
+
+const port: Flag = {
+    name: "port",
+    description: "The port flag",
+    shorthand: "p",
+    types: ["number"]
+}
+
+const verbose: Flag = {
+    name: "verbose",
+    description: "The verbose flag",
+    shorthand: "V",
+}
+
+const version: Flag = {
+    name: "version",
+    description: "The verbose flag",
+    alias: ["v", "ve", "ver", "vers", "versi", "versio"],
+    shorthand: "v",
+}
+
+const ps: CmdDefinition = {
+    name: "ps",
+    description: "The ps command",
+    flags: [
+        port
+    ],
+    allowUnknownArgs: true,
+    exe: async (res) => console.log("ps: ", res.cmd.name + "\nres-data:\n", res.flags, res.valueFlags)
+}
+
+const start: CmdDefinition = {
+    name: "start",
+    description: "The start command",
+    flags: [
+        port
+    ],
+    exe: async (res) => console.log("start: ", res.cmd.name + "\nres-data:\n", res.flags, res.valueFlags)
+}
+
+const stop: CmdDefinition = {
+    name: "stop",
+    description: "The stop command",
+    flags: [
+        force
+    ],
+    exe: async (res) => console.log("stop: ", res.cmd.name + "\nres-data:\n", res.flags, res.valueFlags)
+}
+
+const root: CmdDefinition = {
+    name: "testcmd",
+    description: "The root testcmd command",
+    cmds: [
+        start,
+        stop,
+        ps,
+    ],
+     flags: [
+        version
+    ],
+    //exe: async () => console.log("asdasdd")
+}
+
+parseCmd({
+    cmd: root,
+    globalFlags: [
+        verbose
+    ]
+}).exe()
 ```
-
-# future features / ideas
- - 
 
 # contribution
  - 1. fork the project

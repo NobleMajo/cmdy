@@ -69,31 +69,57 @@ describe('base cmd tests', () => {
         expect(res.flags).is.not.undefined
         expect(getType(res.flags)).is.equals("array")
         expect(res.flags.length).is.equals(0)
-
-        expect(res.valueFlags).is.not.undefined
-        expect(getType(res.valueFlags)).is.equals("object")
-        expect(Object.keys(res.valueFlags).length).is.equals(0)
     })
 
-    it("cmd without args infront", async () => {
+    it("cmd flag tests", async () => {
         exec = false
+
+        const test: Flag = {
+            name: "test",
+            description: "A test flag",
+        }
+
+        const qwer: Flag = {
+            name: "qwer",
+            description: "A qwer flag",
+        }
+
+        const qwe1: Flag = {
+            name: "qwe1",
+            description: "A qwe1 flag",
+            types: ["string"]
+        }
+
+        const qwe2: Flag = {
+            name: "qwe2",
+            description: "A qwe2 flag",
+            types: ["string"]
+        }
+
+        simpleCmd.flags = [
+            test,
+            qwer,
+            qwe1,
+            qwe2
+        ]
 
         let res = parseCmd({
             cmd: simpleCmd,
-            args: ["asdasd", "adsd", "test"],
+            args: ["asdasd", "adsd", "--qwe1", "test", "--test"]
         })
 
         expect(exec).is.false
         res = await res.exe()
         expect(exec).is.true
 
-        expect(res).is.not.undefined
-        expect(res.flags).is.not.undefined
-        expect(getType(res.flags)).is.equals("array")
-        expect(res.flags.length).is.equals(0)
+        expect(res.flags.includes("test")).is.true
+        expect(res.flags.includes("qwer")).is.false
 
-        expect(res.valueFlags).is.not.undefined
-        expect(getType(res.valueFlags)).is.equals("object")
-        expect(Object.keys(res.valueFlags).length).is.equals(0)
+        expect(res.valueFlags.qwe1).is.not.undefined
+        expect(res.valueFlags.qwe2).is.not.undefined
+        expect(res.valueFlags.qwe1.length).is.equals(1)
+        expect(res.valueFlags.qwe2.length).is.equals(0)
+
+        expect(res.valueFlags.qwe1[0]).is.equals("test")
     })
 })
