@@ -369,7 +369,7 @@ export function parseCmd(
                         (
                             cmd.alias &&
                             cmd.alias.includes(argName)
-                        ) 
+                        )
                     ) {
                         res.cmd = cmd
                         res.parents.push(cmd)
@@ -399,7 +399,8 @@ export function parseCmd(
                     )
                 }
             } else if (
-                !res.flags.includes(flag.name)
+                !res.flags.includes(flag.name) &&
+                !Object.keys(res.valueFlags).includes(flag.name)
             ) {
                 const type = typeof flag.default
                 if (
