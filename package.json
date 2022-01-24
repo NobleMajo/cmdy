@@ -1,6 +1,6 @@
 {
   "name": "cmdy",
-  "version": "1.1.5",
+  "version": "1.1.8",
   "description": "A simple cmd parser framework for node js/ts cli apps.",
   "main": "dist/index.js",
   "scripts": {
@@ -12,8 +12,8 @@
     "tsnode": "ts-node src/index.ts",
     "tstest": "mocha -r ts-node/register 'src/test/**/*.test.ts'",
     "test": "npm run compile; mocha 'dist/test/**/*.test.js'",
-    "testi": "npm up -g npm@latest; npm i; npm run test",
-    "release": "npm up -g npm@latest; npm up; npm run compile; npm run test; npm publish"
+    "testi": "npm i; npm run test",
+    "release": "npm up; npm run compile; npm run test; npm publish"
   },
   "keywords": [
     "cli",
