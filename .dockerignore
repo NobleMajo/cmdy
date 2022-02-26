@@ -3,4 +3,5 @@
 !bin
 !package-lock.json
 !package.json
+!tsconfig.json
 src/test/**/*
