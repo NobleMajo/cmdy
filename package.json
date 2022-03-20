@@ -1,6 +1,6 @@
 {
   "name": "cmdy",
-  "version": "1.1.8",
+  "version": "1.2.1",
   "description": "A simple cmd parser framework for node js/ts cli apps.",
   "main": "dist/index.js",
   "scripts": {
