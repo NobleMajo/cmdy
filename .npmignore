@@ -1,8 +1,8 @@
 *
-!dist/**/*
 !bin
-!README.md
 !package-lock.json
 !package.json
-!LICENSE
+!README.md
+!LICENCE
+!dist/**/*
 dist/test/**/*
