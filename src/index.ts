@@ -1,4 +1,3 @@
-import { allowedKeys } from '../../fleetform/src/func';
 exports = module.exports = parseCmd
 export default exports
 
