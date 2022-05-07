@@ -87,6 +87,18 @@ const superCmd: CmdDefinition = {
 }
 
 describe('base cmd tests', () => {
+    it("get process args method", async () => {
+        expect(JSON.stringify(
+            getProcessArgs().args
+        )).is.equals(
+            JSON.stringify([
+                "--require",
+                "ts-node/register",
+                "src/test/**/*.test.ts"
+            ])
+        )
+    })
+
     it("cmd", async () => {
         exec = false
         let res = parseCmd({
@@ -342,16 +354,6 @@ describe('base cmd tests', () => {
         expect(typeof res).is.equals("object")
         expect(typeof res.err).is.equals("object")
         expect(res.err.message).is.equals("Flag 'path' is required but not set!")
-    })
-
-    it("get process args method", async () => {
-        expect(JSON.stringify(getProcessArgs())).is.equals(
-            JSON.stringify([
-                "--require",
-                "ts-node/register",
-                "src/test/**/*.test.ts"
-            ])
-        )
     })
 
     it("check super cmd without args", async () => {

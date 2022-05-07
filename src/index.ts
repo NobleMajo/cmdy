@@ -1,3 +1,5 @@
+import { promises as fs, Stats } from "fs"
+
 exports = module.exports = parseCmd
 export default exports
 
@@ -89,64 +91,18 @@ export function anyToString(value: any): string {
     }
 }
 
-export function getProcessArgs(): string[] {
-    const args = [...process.argv]
-    if (
-        process.env["_"] &&
-        args[0] == process.env["_"]
-    ) {
-        args.shift()
+export interface StartArgs {
+    nodePath: string,
+    appPath: string,
+    args: string[]
+}
+
+export function getProcessArgs(): StartArgs {
+    return {
+        nodePath: process.argv[0],
+        appPath: process.argv[1],
+        args: process.argv.slice(2)
     }
-    if (
-        process.env["NODE"] &&
-        args[0] == process.env["NODE"]
-    ) {
-        args.shift()
-    }
-    while (true) {
-        if (process.env["PWD"] &&
-            args[0].startsWith(
-                process.env["PWD"] + "/node_modules"
-            )
-        ) {
-            args.shift()
-            continue
-        }
-        if (process.env["INIT_CWD"] &&
-            args[0].startsWith(
-                process.env["INIT_CWD"] + "/node_modules"
-            )
-        ) {
-            args.shift()
-            continue
-        }
-        if (process.env["npm_config_local_prefix"] &&
-            args[0].startsWith(
-                process.env["npm_config_local_prefix"] + "/node_modules"
-            )
-        ) {
-            args.shift()
-            continue
-        }
-        if (process.env["_"] &&
-            args[0].startsWith(
-                process.env["_"] + "/node_modules"
-            )
-        ) {
-            args.shift()
-            continue
-        }
-        if (process.env["npm_config_global_prefix"] &&
-            args[0].startsWith(
-                process.env["npm_config_global_prefix"] + "/lib/node_modules"
-            )
-        ) {
-            args.shift()
-            continue
-        }
-        break
-    }
-    return args
 }
 
 export const defaultCmdDefinitionSettings = {
@@ -217,7 +173,7 @@ export interface CmdParserSettings extends CmdParserOptions {
 
 export const defaultCmdParserSettings: CmdParserSettings = {
     cmd: {} as any,
-    args: getProcessArgs(),
+    args: getProcessArgs().args,
     helpWords: ["-h", "--help"],
     globalFlags: [],
     globalHelpMsg: undefined,
