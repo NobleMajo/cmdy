@@ -1,3 +1,4 @@
+import { allowedKeys } from '../../fleetform/src/func';
 exports = module.exports = parseCmd
 export default exports
 
@@ -412,6 +413,10 @@ export function parseCmd(
                     }
                 }
                 if (!found) {
+                    if (res.cmd.allowUnknownArgs) {
+                        res.args.push(arg)
+                        continue
+                    }
                     throw new CmdError(
                         "Unknown flag: \"--" + flagName + "\""
                     )
@@ -437,6 +442,10 @@ export function parseCmd(
                         }
                     }
                     if (!found) {
+                        if (res.cmd.allowUnknownArgs) {
+                            res.args.push(arg)
+                            continue
+                        }
                         throw new CmdError(
                             "Unknown shorthand flag: \"-" + shorthand +
                             "\""
