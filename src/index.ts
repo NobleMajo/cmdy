@@ -74,7 +74,7 @@ export interface CmdResult {
     valueFlags: ValueFlags
     parents: [CmdDefinition, ...CmdDefinition[]],
     settings: CmdParserSettings,
-    exe: () => Awaitable<CmdResult>,
+    exe: () => Promise<CmdResult>,
     helpResult: boolean,
     meta: { [key: string]: any },
     msg?: string,
