@@ -1,7 +1,8 @@
 import "mocha"
 import "chai"
-import { parseCmd, CmdDefinition, Flag, getProcessArgs } from '../index';
+import { parseCmd, CmdDefinition, Flag, getProcessArgs, ValueFlag, BoolFlag } from '../index';
 import { expect } from "chai"
+import exp = require("constants");
 
 export type AllTypes = "string" | "number" | "object" |
     "instance" | "function" | "class" | "array" | "null" |
@@ -29,64 +30,14 @@ let exec: boolean
 const simpleCmd: CmdDefinition = {
     name: "simple",
     description: "A simple test command!",
-    exe: async (cmd) => { exec = true }
-}
-
-const requireCmd: CmdDefinition = {
-    name: "test",
-    description: "some test command",
-    flags: [
-        {
-            name: "path",
-            description: "some path flag",
-            required: true,
-            types: ["string"],
-        }
-    ]
-}
-
-const subsubsubCmd: CmdDefinition = {
-    name: "subsubsub",
-    description: "some sub sub sub command",
-    flags: [],
-    allowUnknownArgs: true,
-}
-
-const subsubCmd: CmdDefinition = {
-    name: "subsub",
-    description: "some sub sub command",
-    flags: [],
-    allowUnknownArgs: true,
-    cmds: [subsubsubCmd],
-}
-
-const subCmd: CmdDefinition = {
-    name: "sub",
-    description: "some sub command",
-    flags: [],
-    allowUnknownArgs: true,
-    cmds: [subsubCmd],
-}
-
-const superCmd: CmdDefinition = {
-    name: "root",
-    description: "some super root command",
-    flags: [
-        {
-            name: "verbose",
-            description: "some path flag",
-            shorthand: "v",
-        }
-    ],
-    allowUnknownArgs: false,
-    cmds: [
-        requireCmd,
-        simpleCmd,
-        subCmd,
-    ]
+    exe: async () => { exec = true }
 }
 
 describe('base cmd tests', () => {
+    beforeEach(() => {
+        exec = false
+    })
+
     it("get process args method", async () => {
         expect(JSON.stringify(
             getProcessArgs().args
@@ -100,7 +51,6 @@ describe('base cmd tests', () => {
     })
 
     it("cmd", async () => {
-        exec = false
         let res = parseCmd({
             cmd: simpleCmd,
             args: [],
@@ -123,25 +73,23 @@ describe('base cmd tests', () => {
     })
 
     it("test flags args", async () => {
-        exec = false
-
-        const test: Flag = {
+        const test: BoolFlag = {
             name: "test",
             description: "A test flag",
         }
 
-        const qwer: Flag = {
+        const qwer: BoolFlag = {
             name: "qwer",
             description: "A qwer flag",
         }
 
-        const qwe1: Flag = {
+        const qwe1: ValueFlag = {
             name: "qwe1",
             description: "A qwe1 flag",
             types: ["string"]
         }
 
-        const qwe2: Flag = {
+        const qwe2: ValueFlag = {
             name: "qwe2",
             description: "A qwe2 flag",
             types: ["string"]
@@ -176,27 +124,31 @@ describe('base cmd tests', () => {
 
         expect(res.valueFlags.qwe1[0]).is.equals("test")
     })
+})
+
+describe('unknown args tests', () => {
+    beforeEach(() => {
+        exec = false
+    })
 
     it("dont allow unknown args", async () => {
-        exec = false
-
-        const test: Flag = {
+        const test: BoolFlag = {
             name: "test",
             description: "A test flag",
         }
 
-        const qwer: Flag = {
+        const qwer: BoolFlag = {
             name: "qwer",
             description: "A qwer flag",
         }
 
-        const qwe1: Flag = {
+        const qwe1: ValueFlag = {
             name: "qwe1",
             description: "A qwe1 flag",
             types: ["string"]
         }
 
-        const qwe2: Flag = {
+        const qwe2: ValueFlag = {
             name: "qwe2",
             description: "A qwe2 flag",
             types: ["string"]
@@ -208,7 +160,6 @@ describe('base cmd tests', () => {
             qwe1,
             qwe2
         ]
-        simpleCmd.allowUnknownArgs = false
 
         let res = parseCmd({
             cmd: simpleCmd,
@@ -221,25 +172,23 @@ describe('base cmd tests', () => {
     })
 
     it("allow unknown args", async () => {
-        exec = false
-
-        const test: Flag = {
+        const test: BoolFlag = {
             name: "test",
             description: "A test flag",
         }
 
-        const qwer: Flag = {
+        const qwer: BoolFlag = {
             name: "qwer",
             description: "A qwer flag",
         }
 
-        const qwe1: Flag = {
+        const qwe1: ValueFlag = {
             name: "qwe1",
             description: "A qwe1 flag",
             types: ["string"]
         }
 
-        const qwe2: Flag = {
+        const qwe2: ValueFlag = {
             name: "qwe2",
             description: "A qwe2 flag",
             types: ["string"]
@@ -251,10 +200,12 @@ describe('base cmd tests', () => {
             qwe1,
             qwe2
         ]
-        simpleCmd.allowUnknownArgs = true
 
         let res = parseCmd({
-            cmd: simpleCmd,
+            cmd: {
+                ...simpleCmd,
+                allowUnknownArgs: true,
+            },
             args: ["--qwe1", "test", "ddd", "--test", "asdasd"]
         })
 
@@ -277,25 +228,23 @@ describe('base cmd tests', () => {
     })
 
     it("allow just args", async () => {
-        exec = false
-
-        const test: Flag = {
+        const test: BoolFlag = {
             name: "test",
             description: "A test flag",
         }
 
-        const qwer: Flag = {
+        const qwer: BoolFlag = {
             name: "qwer",
             description: "A qwer flag",
         }
 
-        const qwe1: Flag = {
+        const qwe1: ValueFlag = {
             name: "qwe1",
             description: "A qwe1 flag",
             types: ["string"]
         }
 
-        const qwe2: Flag = {
+        const qwe2: ValueFlag = {
             name: "qwe2",
             description: "A qwe2 flag",
             types: ["string"]
@@ -307,10 +256,12 @@ describe('base cmd tests', () => {
             qwe1,
             qwe2
         ]
-        simpleCmd.allowUnknownArgs = true
 
         let res = parseCmd({
-            cmd: simpleCmd,
+            cmd: {
+                ...simpleCmd,
+                allowUnknownArgs: true,
+            },
             args: ["qwe1", "test", "ddd", "test", "asdasd"]
         })
 
@@ -329,8 +280,25 @@ describe('base cmd tests', () => {
         expect(res.valueFlags.qwe1.length).is.equals(0)
         expect(res.valueFlags.qwe2.length).is.equals(0)
     })
+})
 
-    it("require test", async () => {
+
+const requireCmd: CmdDefinition = {
+    name: "test",
+    description: "some test command",
+    flags: [
+        {
+            name: "path",
+            description: "some path flag",
+            required: true,
+            types: ["string"],
+        }
+    ]
+}
+
+
+describe('required flag', () => {
+    it("require flag test", async () => {
         let res = parseCmd({
             cmd: requireCmd,
             args: ["--path", "/test/wow/home"],
@@ -345,7 +313,7 @@ describe('base cmd tests', () => {
         expect(typeof res.valueFlags.path[0]).is.equals("string")
     })
 
-    it("require error", async () => {
+    it("require flag error", async () => {
         let res = parseCmd({
             cmd: requireCmd,
             args: [],
@@ -355,7 +323,54 @@ describe('base cmd tests', () => {
         expect(typeof res.err).is.equals("object")
         expect(res.err.message).is.equals("Flag 'path' is required but not set!")
     })
+})
 
+const subsubsubCmd: CmdDefinition = {
+    name: "subsubsub",
+    description: "some sub sub sub command",
+    flags: [],
+    allowUnknownArgs: true,
+    allowUnknownFlags: true,
+}
+
+const subsubCmd: CmdDefinition = {
+    name: "subsub",
+    description: "some sub sub command",
+    flags: [],
+    allowUnknownArgs: true,
+    allowUnknownFlags: true,
+    cmds: [subsubsubCmd],
+}
+
+const subCmd: CmdDefinition = {
+    name: "sub",
+    description: "some sub command",
+    flags: [],
+    allowUnknownArgs: true,
+    allowUnknownFlags: true,
+    cmds: [subsubCmd],
+}
+
+const superCmd: CmdDefinition = {
+    name: "root",
+    description: "some super root command",
+    flags: [
+        {
+            name: "verbose",
+            description: "some path flag",
+            shorthand: "v",
+        }
+    ],
+    allowUnknownArgs: false,
+    allowUnknownFlags: true,
+    cmds: [
+        requireCmd,
+        simpleCmd,
+        subCmd,
+    ],
+}
+
+describe('sub commands tests', () => {
     it("check super cmd without args", async () => {
         exec = false
         let res = parseCmd({
@@ -502,6 +517,478 @@ describe('base cmd tests', () => {
         expect(getType(res.valueFlags)).is.equals("object")
         expect(Object.keys(res.valueFlags).length).is.equals(0)
     })
+})
+
+let verbose: boolean
+let path: string[]
+let number: string[]
+
+const execFlagCmd: CmdDefinition = {
+    name: "execflagcmd",
+    description: "some command with executable flags",
+    flags: [
+        {
+            name: "verbose",
+            description: "some path flag",
+            shorthand: "v",
+            exe(res) {
+                verbose = true
+            }
+        },
+        {
+            name: "path",
+            description: "some path flag",
+            shorthand: "p",
+            types: ["string"],
+            exe(res, value) {
+                path.push(value)
+            }
+        },
+        {
+            name: "number",
+            description: "some number flag",
+            shorthand: "n",
+            types: ["number"],
+            exe(res, value) {
+                number.push(value)
+            }
+        },
+    ],
+    exe: async (cmd) => { exec = true }
+}
+
+describe('executable flags', () => {
+    beforeEach(() => {
+        exec = false
+        verbose = false
+        path = []
+        number = []
+    })
+
+    it("check without flags", async () => {
+        let res = parseCmd({
+            cmd: execFlagCmd,
+            args: [],
+        })
+
+        expect(exec).is.false
+        res = await res.exe()
+        expect(exec).is.true
+
+        expect(res.args.length).is.equals(0)
+        expect(res.err).is.undefined
+
+        expect(res).is.not.undefined
+        expect(res.err).is.undefined
+
+        expect(verbose).is.false
+        expect(path.length).is.equals(0)
+        expect(number.length).is.equals(0)
+
+        expect(res.flags).is.not.undefined
+        expect(getType(res.flags)).is.equals("array")
+        expect(res.flags.length).is.equals(0)
+        expect(res.args.length).is.equals(0)
+
+        expect(res.valueFlags).is.not.undefined
+        expect(getType(res.valueFlags)).is.equals("object")
+        expect(Object.keys(res.valueFlags).length).is.equals(2)
+        expect(Object.keys(res.valueFlags.path).length).is.equals(0)
+        expect(Object.keys(res.valueFlags.number).length).is.equals(0)
+    })
+
+    it("check with verbose", async () => {
+        let res = parseCmd({
+            cmd: execFlagCmd,
+            args: ["-v"],
+        })
+
+        expect(exec).is.false
+        res = await res.exe()
+        expect(exec).is.true
+
+        expect(res.args.length).is.equals(0)
+        expect(res.err).is.undefined
+
+        expect(res).is.not.undefined
+        expect(res.err).is.undefined
+
+        expect(verbose).is.true
+        expect(path.length).is.equals(0)
+        expect(number.length).is.equals(0)
+
+        expect(res.flags).is.not.undefined
+        expect(getType(res.flags)).is.equals("array")
+        expect(res.flags.length).is.equals(1)
+        expect(res.args.length).is.equals(0)
+
+        expect(res.valueFlags).is.not.undefined
+        expect(getType(res.valueFlags)).is.equals("object")
+        expect(Object.keys(res.valueFlags).length).is.equals(2)
+        expect(Object.keys(res.valueFlags.path).length).is.equals(0)
+        expect(Object.keys(res.valueFlags.number).length).is.equals(0)
+    })
+
+    it("check with one path", async () => {
+        let res = parseCmd({
+            cmd: execFlagCmd,
+            args: ["--path", "/var/www/html"],
+        })
+
+        expect(exec).is.false
+        res = await res.exe()
+        expect(exec).is.true
+
+        expect(res.args.length).is.equals(0)
+        expect(res.err).is.undefined
+
+        expect(res).is.not.undefined
+        expect(res.err).is.undefined
+
+        expect(verbose).is.false
+        expect(path.length).is.equals(1)
+        expect(path[0]).is.equals("/var/www/html")
+        expect(number.length).is.equals(0)
+
+        expect(res.flags).is.not.undefined
+        expect(getType(res.flags)).is.equals("array")
+        expect(res.flags.length).is.equals(0)
+        expect(res.args.length).is.equals(0)
+
+        expect(res.valueFlags).is.not.undefined
+        expect(getType(res.valueFlags)).is.equals("object")
+        expect(Object.keys(res.valueFlags).length).is.equals(2)
+        expect(Object.keys(res.valueFlags.path).length).is.equals(1)
+        expect(res.valueFlags.path[0]).is.equals("/var/www/html")
+        expect(Object.keys(res.valueFlags.number).length).is.equals(0)
+    })
+
+    it("check with multiple paths", async () => {
+        let res = parseCmd({
+            cmd: execFlagCmd,
+            args: [
+                "--path", "/var/www/html",
+                "--path", "/some/new/path",
+                "--path", "/some/old/path",
+                "--path", "/test/path"
+            ],
+        })
+
+        expect(exec).is.false
+        res = await res.exe()
+        expect(exec).is.true
+
+        expect(res.args.length).is.equals(0)
+        expect(res.err).is.undefined
+
+        expect(res).is.not.undefined
+        expect(res.err).is.undefined
+
+        expect(verbose).is.false
+        expect(path.length).is.equals(4)
+        expect(JSON.stringify(path)).is.equals(JSON.stringify([
+            "/var/www/html",
+            "/some/new/path",
+            "/some/old/path",
+            "/test/path"
+        ]))
+        expect(number.length).is.equals(0)
+
+        expect(res.flags).is.not.undefined
+        expect(getType(res.flags)).is.equals("array")
+        expect(res.flags.length).is.equals(0)
+        expect(res.args.length).is.equals(0)
+
+        expect(res.valueFlags).is.not.undefined
+        expect(getType(res.valueFlags)).is.equals("object")
+        expect(Object.keys(res.valueFlags).length).is.equals(2)
+        expect(Object.keys(res.valueFlags.path).length).is.equals(4)
+        expect(JSON.stringify(res.valueFlags.path)).is.equals(JSON.stringify([
+            "/var/www/html",
+            "/some/new/path",
+            "/some/old/path",
+            "/test/path"
+        ]))
+        expect(Object.keys(res.valueFlags.number).length).is.equals(0)
+    })
+
+    it("check with multiple paths and numbers and verbose", async () => {
+        let res = parseCmd({
+            cmd: execFlagCmd,
+            args: [
+                "--number", "1",
+                "--path", "/var/www/html",
+                "--path", "/some/new/path",
+                "-v",
+                "--path", "/some/old/path",
+                "--number", "2",
+                "--number", "3",
+                "--number", "4",
+                "--number", "5",
+                "--number", "6",
+                "--path", "/test/path"
+            ],
+        })
+
+        expect(exec).is.false
+        res = await res.exe()
+        expect(exec).is.true
+
+        expect(res.args.length).is.equals(0)
+        expect(res.err).is.undefined
+
+        expect(res).is.not.undefined
+        expect(res.err).is.undefined
+
+        expect(verbose).is.true
+        expect(path.length).is.equals(4)
+        expect(JSON.stringify(path)).is.equals(JSON.stringify([
+            "/var/www/html",
+            "/some/new/path",
+            "/some/old/path",
+            "/test/path"
+        ]))
+        expect(number.length).is.equals(6)
+        expect(JSON.stringify(number)).is.equals(JSON.stringify([
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+        ]))
+
+        expect(res.flags).is.not.undefined
+        expect(getType(res.flags)).is.equals("array")
+        expect(res.flags.length).is.equals(1)
+        expect(res.args.length).is.equals(0)
+
+        expect(res.valueFlags).is.not.undefined
+        expect(getType(res.valueFlags)).is.equals("object")
+        expect(Object.keys(res.valueFlags).length).is.equals(2)
+        expect(Object.keys(res.valueFlags.path).length).is.equals(4)
+        expect(JSON.stringify(res.valueFlags.path)).is.equals(JSON.stringify([
+            "/var/www/html",
+            "/some/new/path",
+            "/some/old/path",
+            "/test/path"
+        ]))
+        expect(Object.keys(res.valueFlags.number).length).is.equals(6)
+        expect(JSON.stringify(res.valueFlags.number)).is.equals(JSON.stringify([
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+        ]))
+    })
+
+    it("check error on unknown arg", async () => {
+        let res = parseCmd({
+            cmd: execFlagCmd,
+            args: [
+                "--number", "1",
+                "--path", "/var/www/html",
+                "--path", "/some/new/path",
+                "-v",
+                "--path", "/some/old/path",
+                "--number", "2",
+                "--number", "3",
+                "asdasd",
+                "--number", "4",
+                "--number", "5",
+                "--number", "6",
+                "--path", "/test/path"
+            ],
+        })
+
+        expect(typeof res.err).is.equals("object")
+        expect(res.err.message).is.equals('Unknown command argument: "asdasd"')
+    })
+
+    it("check error on unknown allowed arg", async () => {
+        let res = parseCmd({
+            cmd: {
+                ...execFlagCmd,
+                allowUnknownArgs: true,
+            },
+            args: [
+                "--number", "1",
+                "--path", "/var/www/html",
+                "--path", "/some/new/path",
+                "-v",
+                "--path", "/some/old/path",
+                "--number", "2",
+                "--number", "3",
+                "asdasd",
+                "--number", "4",
+                "--number", "5",
+                "--number", "6",
+                "--path", "/test/path"
+            ],
+        })
+
+        expect(exec).is.false
+        res = await res.exe()
+        expect(exec).is.true
+
+        expect(res.args.length).is.equals(1)
+        expect(res.args[0]).is.equals("asdasd")
+        expect(res.err).is.undefined
+
+        expect(res).is.not.undefined
+        expect(res.err).is.undefined
+
+        expect(verbose).is.true
+        expect(path.length).is.equals(4)
+        expect(JSON.stringify(path)).is.equals(JSON.stringify([
+            "/var/www/html",
+            "/some/new/path",
+            "/some/old/path",
+            "/test/path"
+        ]))
+        expect(number.length).is.equals(6)
+        expect(JSON.stringify(number)).is.equals(JSON.stringify([
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+        ]))
+
+        expect(res.flags).is.not.undefined
+        expect(getType(res.flags)).is.equals("array")
+        expect(res.flags.length).is.equals(1)
+        expect(res.args.length).is.equals(1)
+        expect(res.args[0]).is.equals("asdasd")
+
+        expect(res.valueFlags).is.not.undefined
+        expect(getType(res.valueFlags)).is.equals("object")
+        expect(Object.keys(res.valueFlags).length).is.equals(2)
+        expect(Object.keys(res.valueFlags.path).length).is.equals(4)
+        expect(JSON.stringify(res.valueFlags.path)).is.equals(JSON.stringify([
+            "/var/www/html",
+            "/some/new/path",
+            "/some/old/path",
+            "/test/path"
+        ]))
+        expect(Object.keys(res.valueFlags.number).length).is.equals(6)
+        expect(JSON.stringify(res.valueFlags.number)).is.equals(JSON.stringify([
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+        ]))
+    })
+
+
+    it("check error on unknown flag", async () => {
+        let res = parseCmd({
+            cmd: execFlagCmd,
+            args: [
+                "--number", "1",
+                "--path", "/var/www/html",
+                "--path", "/some/new/path",
+                "-v",
+                "--path", "/some/old/path",
+                "--number", "2",
+                "--number", "3",
+                "--port",
+                "--number", "4",
+                "--number", "5",
+                "--number", "6",
+                "--path", "/test/path"
+            ],
+        })
+
+        expect(typeof res.err).is.equals("object")
+        expect(res.err.message).is.equals('Unknown flag: "--port"')
+    })
+
+    it("check error on unknown allowed flag", async () => {
+        let res = parseCmd({
+            cmd: {
+                ...execFlagCmd,
+                allowUnknownFlags: true,
+            },
+            args: [
+                "--number", "1",
+                "--path", "/var/www/html",
+                "--path", "/some/new/path",
+                "-v",
+                "--path", "/some/old/path",
+                "--number", "2",
+                "--number", "3",
+                "--port",
+                "--number", "4",
+                "--number", "5",
+                "--number", "6",
+                "--path", "/test/path"
+            ],
+        })
+
+        expect(exec).is.false
+        res = await res.exe()
+        expect(exec).is.true
+
+        expect(res.args.length).is.equals(1)
+        expect(res.args[0]).is.equals("--port")
+        expect(res.err).is.undefined
+
+        expect(res).is.not.undefined
+        expect(res.err).is.undefined
+
+        expect(verbose).is.true
+        expect(path.length).is.equals(4)
+        expect(JSON.stringify(path)).is.equals(JSON.stringify([
+            "/var/www/html",
+            "/some/new/path",
+            "/some/old/path",
+            "/test/path"
+        ]))
+        expect(number.length).is.equals(6)
+        expect(JSON.stringify(number)).is.equals(JSON.stringify([
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+        ]))
+
+        expect(res.flags).is.not.undefined
+        expect(getType(res.flags)).is.equals("array")
+        expect(res.flags.length).is.equals(1)
+        expect(res.args.length).is.equals(1)
+        expect(res.args[0]).is.equals("--port")
+
+        expect(res.valueFlags).is.not.undefined
+        expect(getType(res.valueFlags)).is.equals("object")
+        expect(Object.keys(res.valueFlags).length).is.equals(2)
+        expect(Object.keys(res.valueFlags.path).length).is.equals(4)
+        expect(JSON.stringify(res.valueFlags.path)).is.equals(JSON.stringify([
+            "/var/www/html",
+            "/some/new/path",
+            "/some/old/path",
+            "/test/path"
+        ]))
+        expect(Object.keys(res.valueFlags.number).length).is.equals(6)
+        expect(JSON.stringify(res.valueFlags.number)).is.equals(JSON.stringify([
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+        ]))
+    })
+
 
 
 })
+
+

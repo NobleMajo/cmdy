@@ -3,6 +3,8 @@ import { promises as fs, Stats } from "fs"
 exports = module.exports = parseCmd
 export default exports
 
+export type Awaitable<T> = Promise<T> | PromiseLike<T> | T
+
 export class CmdError extends Error {
     constructor(
         msg: string
@@ -13,7 +15,7 @@ export class CmdError extends Error {
 
 export interface InputValidator {
     name: string,
-    validate: (value: any) => Promise<any | undefined>
+    validate: (value: any) => Awaitable<any | undefined>
 }
 
 export type FlagValueTypes = "string" | "number" | "boolean" | InputValidator
@@ -27,9 +29,25 @@ export interface Flag {
     types?: FlagValueTypes[]
     shorthand?: string,
     alias?: string[],
-    control?: (value: string) => Promise<string>,
-    exe?: (cmd: CmdResult) => Promise<void>,
+    control?: (value: string) => Awaitable<string>,
+    exe?: (cmd: CmdResult, value?: string) => Awaitable<void>,
+    exePriority?: number,
 }
+
+export interface BoolFlag extends Flag {
+    types?: undefined
+    control?: undefined,
+    default?: undefined,
+    required?: undefined,
+    exe?: (cmd: CmdResult) => Awaitable<void>,
+}
+
+export interface ValueFlag extends Flag {
+    types: FlagValueTypes[]
+    exe?: (cmd: CmdResult, value: string) => Awaitable<void>,
+}
+
+export type DefinedFlag = BoolFlag | ValueFlag
 
 export interface CmdDefinition {
     name: string,
@@ -37,11 +55,12 @@ export interface CmdDefinition {
     displayName?: string,
     cmds?: CmdDefinition[],
     allowUnknownArgs?: boolean,
+    allowUnknownFlags?: boolean,
     details?: string | undefined,
     alias?: string[],
-    flags?: Flag[],
+    flags?: DefinedFlag[],
     group?: string | undefined,
-    exe?: (cmd: CmdResult) => Promise<void>,
+    exe?: (cmd: CmdResult) => Awaitable<void>,
 }
 
 export interface ValueFlags {
@@ -55,11 +74,13 @@ export interface CmdResult {
     valueFlags: ValueFlags
     parents: [CmdDefinition, ...CmdDefinition[]],
     settings: CmdParserSettings,
-    exe: () => Promise<CmdResult>,
+    exe: () => Awaitable<CmdResult>,
     helpResult: boolean,
     meta: { [key: string]: any },
     msg?: string,
     err?: CmdError | any,
+    exeFlags: Flag[],
+    exeValueFlags: [string, Flag][]
 }
 
 export function anyToString(value: any): string {
@@ -108,6 +129,7 @@ export function getProcessArgs(): StartArgs {
 export const defaultCmdDefinitionSettings = {
     cmds: [],
     allowUnknownArgs: false,
+    allowUnknownFlags: false,
     details: undefined,
     alias: [],
     flags: [],
@@ -116,8 +138,8 @@ export const defaultCmdDefinitionSettings = {
 
 export function fillCmdDefinitionRecursive(
     cmd: CmdDefinition,
-    globalFlags: Flag[],
-    helpFlag: Flag
+    globalFlags: DefinedFlag[],
+    helpFlag: DefinedFlag
 ): CmdDefinition {
     const cmd2: CmdDefinition = {
         ...defaultCmdDefinitionSettings,
@@ -147,7 +169,7 @@ export function fillCmdDefinitionRecursive(
     return cmd2
 }
 
-export const helpFlag: Flag = {
+export const helpFlag: BoolFlag = {
     name: "help",
     description: "Shows this help output",
     shorthand: "h",
@@ -157,18 +179,18 @@ export interface CmdParserOptions {
     cmd: CmdDefinition,
     args?: string[],
     helpWords?: string[],
-    globalFlags?: Flag[]
+    globalFlags?: DefinedFlag[]
     globalHelpMsg?: string | undefined,
     helpGeneratorFunction?: HelpGenerator,
-    helpFlag?: Flag
+    helpFlag?: DefinedFlag
 }
 
 export interface CmdParserSettings extends CmdParserOptions {
     helpWords: string[],
-    globalFlags: Flag[]
+    globalFlags: DefinedFlag[]
     globalHelpMsg: string | undefined,
     helpGeneratorFunction: HelpGenerator,
-    helpFlag: Flag
+    helpFlag: DefinedFlag
 }
 
 export const defaultCmdParserSettings: CmdParserSettings = {
@@ -211,6 +233,8 @@ export function parseCmd(
         exe: undefined as any,
         meta: {},
         helpResult: false,
+        exeFlags: [],
+        exeValueFlags: [],
     }
 
     while (restArgs.length > 0) {
@@ -352,6 +376,9 @@ export function parseCmd(
                                 res.valueFlags[flag.name] = []
                             }
                             res.valueFlags[flag.name].push(value)
+                            if (flag.exe) {
+                                res.exeValueFlags.push([value, flag])
+                            }
                         } else {
                             if (flagValue.length > 0) {
                                 throw new CmdError(
@@ -361,6 +388,9 @@ export function parseCmd(
                             }
                             if (!res.flags.includes(flag.name)) {
                                 res.flags.push(flag.name)
+                                if (flag.exe) {
+                                    res.exeFlags.push(flag)
+                                }
                             }
                         }
                         found = true
@@ -368,7 +398,7 @@ export function parseCmd(
                     }
                 }
                 if (!found) {
-                    if (res.cmd.allowUnknownArgs) {
+                    if (res.cmd.allowUnknownFlags) {
                         res.args.push(arg)
                         continue
                     }
@@ -397,7 +427,7 @@ export function parseCmd(
                         }
                     }
                     if (!found) {
-                        if (res.cmd.allowUnknownArgs) {
+                        if (res.cmd.allowUnknownFlags) {
                             res.args.push(arg)
                             continue
                         }
@@ -479,6 +509,12 @@ export function parseCmd(
             res.valueFlags[f.name] = []
         }
     })
+    res.exeFlags = res.exeFlags.sort(
+        (a, b) => (a.exePriority ?? 0) - (b.exePriority ?? 0)
+    )
+    res.exeValueFlags = res.exeValueFlags.sort(
+        (a, b) => (a[1].exePriority ?? 0) - (b[1].exePriority ?? 0)
+    )
     if (!res.cmd.exe) {
         settings.helpGeneratorFunction(res)
     } else if (!res.err) {
@@ -486,6 +522,12 @@ export function parseCmd(
             settings.helpGeneratorFunction(res)
         } else {
             res.exe = async () => {
+                for (const flag of res.exeFlags) {
+                    await flag.exe(res)
+                }
+                for (const flag of res.exeValueFlags) {
+                    await flag[1].exe(res, flag[0])
+                }
                 res.cmd.exe(res)
                 return res
             }
