@@ -54,20 +54,97 @@ export interface CmdResult {
     parents: [CmdDefinition, ...CmdDefinition[]],
     settings: CmdParserSettings,
     exe: () => Promise<CmdResult>,
-    help: boolean,
-    emptyCmd: boolean,
+    helpResult: boolean,
     meta: { [key: string]: any },
     msg?: string,
     err?: CmdError | any,
 }
 
+export function anyToString(value: any): string {
+    if (typeof value == "object") {
+        if (value == null) {
+            return "NULL"
+        }
+        let v: string
+        try {
+            v = JSON.stringify(value)
+        } catch (err) {
+        }
+        if (
+            typeof v == "string" &&
+            v.length > 0
+        ) {
+            return v
+        }
+        v = "" + value
+        if (
+            typeof v == "string" &&
+            v.length > 0
+        ) {
+            return v
+        }
+        return "{}"
+    } else {
+        return "" + value
+    }
+}
+
 export function getProcessArgs(): string[] {
     const args = [...process.argv]
-    while (args.length > 0) {
-        if (!args[0].includes("/") && !args[0].includes("\\")) {
-            break
-        }
+    if (
+        process.env["_"] &&
+        args[0] == process.env["_"]
+    ) {
         args.shift()
+    }
+    if (
+        process.env["NODE"] &&
+        args[0] == process.env["NODE"]
+    ) {
+        args.shift()
+    }
+    while (true) {
+        if (process.env["PWD"] &&
+            args[0].startsWith(
+                process.env["PWD"] + "/node_modules"
+            )
+        ) {
+            args.shift()
+            continue
+        }
+        if (process.env["INIT_CWD"] &&
+            args[0].startsWith(
+                process.env["INIT_CWD"] + "/node_modules"
+            )
+        ) {
+            args.shift()
+            continue
+        }
+        if (process.env["npm_config_local_prefix"] &&
+            args[0].startsWith(
+                process.env["npm_config_local_prefix"] + "/node_modules"
+            )
+        ) {
+            args.shift()
+            continue
+        }
+        if (process.env["_"] &&
+            args[0].startsWith(
+                process.env["_"] + "/node_modules"
+            )
+        ) {
+            args.shift()
+            continue
+        }
+        if (process.env["npm_config_global_prefix"] &&
+            args[0].startsWith(
+                process.env["npm_config_global_prefix"] + "/lib/node_modules"
+            )
+        ) {
+            args.shift()
+            continue
+        }
+        break
     }
     return args
 }
@@ -160,11 +237,12 @@ export function parseCmd(
         settings.globalFlags,
         settings.helpFlag
     )
+    let restArgs = settings.args
     if (
-        settings.args.length > 0 &&
-        settings.args[0] == settings.cmd.name
+        restArgs.length > 0 &&
+        restArgs[0] == settings.cmd.name
     ) {
-        settings.args.shift()
+        restArgs.shift()
     }
     const res: CmdResult = {
         cmd: settings.cmd,
@@ -176,10 +254,31 @@ export function parseCmd(
         err: undefined,
         exe: undefined as any,
         meta: {},
-        help: false,
-        emptyCmd: false,
+        helpResult: false,
     }
-    let cmdFound: boolean = false
+
+    while (restArgs.length > 0) {
+        const arg = restArgs[0]
+        const lowerArg = arg.toLowerCase()
+        let found: boolean = false
+        for (const cmd of res.cmd.cmds) {
+            if (
+                cmd.name == lowerArg ||
+                (
+                    cmd.alias &&
+                    cmd.alias.includes(lowerArg)
+                )
+            ) {
+                restArgs.shift()
+                res.cmd = cmd
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            break
+        }
+    }
 
     try {
         // parse flags to 
@@ -195,8 +294,8 @@ export function parseCmd(
             }
         }
 
-        for (let index = 0; index < settings.args.length; index++) {
-            const arg: string = settings.args[index]
+        for (let index = 0; index < restArgs.length; index++) {
+            const arg: string = restArgs[index]
             const lowerArg: string = arg.toLowerCase()
             if (arg == "") {
                 continue
@@ -204,14 +303,13 @@ export function parseCmd(
                 lowerArg == "--help" ||
                 lowerArg == "-h"
             ) {
-                cmdFound = true
                 if (!res.flags.includes("help")) {
                     res.flags.push("help")
                 }
             } else if (arg.startsWith("--")) {
-                cmdFound = true
                 let flagName: string = arg.substring(2).toLowerCase()
                 let flagValue: string = ""
+
                 const equalIndex: number = flagName.indexOf("=")
                 if (equalIndex != -1) {
                     flagValue = flagName.substring(equalIndex + 1)
@@ -231,9 +329,9 @@ export function parseCmd(
                         ) {
                             if (
                                 flagValue.length == 0 &&
-                                index + 1 < settings.args.length
+                                index + 1 < restArgs.length
                             ) {
-                                flagValue = settings.args[index + 1]
+                                flagValue = restArgs[index + 1]
                                 index++
                             }
                             if (flagValue.length == 0) {
@@ -244,7 +342,7 @@ export function parseCmd(
                             }
                             if (flagValue.startsWith("\"")) {
                                 while (true) {
-                                    let next: string = settings.args[index + 1]
+                                    let next: string = restArgs[index + 1]
                                     flagValue += " " + next
                                     index++
                                     if (next.endsWith("\"")) {
@@ -329,10 +427,10 @@ export function parseCmd(
                             flag.shorthand &&
                             flag.shorthand == shorthand
                         ) {
-                            settings.args = [
-                                ...settings.args.slice(0, index + 1),
+                            restArgs = [
+                                ...restArgs.slice(0, index + 1),
                                 "--" + flag.name,
-                                ...settings.args.slice(index + 1)
+                                ...restArgs.slice(index + 1)
                             ]
                             found = true
                             break
@@ -345,37 +443,18 @@ export function parseCmd(
                         )
                     }
                 }
-                settings.args = [
-                    ...settings.args.slice(0, index),
-                    ...settings.args.slice(index + 1)
+                restArgs = [
+                    ...restArgs.slice(0, index),
+                    ...restArgs.slice(index + 1)
                 ]
                 index--
             } else {
-                if (cmdFound) {
-                    if (!res.cmd.allowUnknownArgs) {
-                        throw new CmdError(
-                            "Unknown command argument: \"" + arg + "\""
-                        )
-                    }
-                    res.args.push(arg)
-                    continue
+                if (!res.cmd.allowUnknownArgs) {
+                    throw new CmdError(
+                        "Unknown command argument: \"" + arg + "\""
+                    )
                 }
-                const argName = arg.toLowerCase()
-
-                for (let index = 0; res.cmd.cmds && index < res.cmd.cmds.length; index++) {
-                    const cmd = res.cmd.cmds[index]
-                    if (
-                        cmd.name == argName ||
-                        (
-                            cmd.alias &&
-                            cmd.alias.includes(argName)
-                        )
-                    ) {
-                        res.cmd = cmd
-                        res.parents.push(cmd)
-                        break
-                    }
-                }
+                res.args.push(arg)
             }
         }
 
@@ -417,7 +496,6 @@ export function parseCmd(
                 }
             }
         }
-
     } catch (err: CmdError | any) {
         res.err = err
         res.exe = async () => {
@@ -429,7 +507,6 @@ export function parseCmd(
             return res
         }
     }
-
     res.cmd.flags.forEach((f) => {
         if (!Array.isArray(f.types)) {
             return
@@ -438,10 +515,10 @@ export function parseCmd(
             res.valueFlags[f.name] = []
         }
     })
-    res.emptyCmd = res.cmd.exe ? false : true
-    res.help = res.emptyCmd || res.flags.includes("help")
-    if (!res.err) {
-        if (res.help) {
+    if (!res.cmd.exe) {
+        settings.helpGeneratorFunction(res)
+    } else if (!res.err) {
+        if (res.flags.includes("help")) {
             settings.helpGeneratorFunction(res)
         } else {
             res.exe = async () => {
@@ -450,6 +527,7 @@ export function parseCmd(
             }
         }
     }
+
     return res
 }
 
@@ -462,7 +540,15 @@ export type HelpGenerator = (
 export function defaultHelpGenerator(
     data: CmdResult,
 ): CmdResult {
+    data.helpResult = true
     let message: string = "# " + data.cmd.name.toUpperCase() + " #"
+
+    !data.cmd.exe && (
+        message += "\n\nERROR: Command " +
+        data.cmd.name +
+        " not directly executeable!"
+    )
+
     message += "\n\nUsage: " + data.parents.map((a) => a.name).join(" ")
 
     if (data.cmd.flags.length > 0) {
@@ -548,7 +634,7 @@ export function defaultHelpGenerator(
         }
     }
 
-    if (data.cmd.details && data.help) {
+    if (data.cmd.details && data.flags.includes("help")) {
         message += "\n\nDetails:\n" + data.cmd.details
     } else {
         message += "\n\nRun '" + data.parents.map((a) => a.name).join(" ") + " --help' for more informations on a command."
