@@ -30,8 +30,9 @@ export interface Flag {
     shorthand?: string,
     alias?: string[],
     control?: (value: string) => Awaitable<string>,
-    exe?: (cmd: CmdResult, value?: string) => Awaitable<void>,
+    exe?: (cmd: CmdResult, value: string) => Awaitable<void>,
     exePriority?: number,
+    multiValues?: boolean,
 }
 
 export interface BoolFlag extends Flag {
@@ -39,12 +40,11 @@ export interface BoolFlag extends Flag {
     control?: undefined,
     default?: undefined,
     required?: undefined,
-    exe?: (cmd: CmdResult) => Awaitable<void>,
+    multiValues?: undefined,
 }
 
 export interface ValueFlag extends Flag {
     types: FlagValueTypes[]
-    exe?: (cmd: CmdResult, value: string) => Awaitable<void>,
 }
 
 export type DefinedFlag = BoolFlag | ValueFlag
@@ -64,14 +64,19 @@ export interface CmdDefinition {
 }
 
 export interface ValueFlags {
+    [key: string]: string
+}
+
+export interface ArrayFlags {
     [key: string]: string[]
 }
 
 export interface CmdResult {
     cmd: CmdDefinition,
     args: string[],
-    flags: string[]
-    valueFlags: ValueFlags
+    flags: string[],
+    arrayFlags: ArrayFlags,
+    valueFlags: ValueFlags,
     parents: [CmdDefinition, ...CmdDefinition[]],
     settings: CmdParserSettings,
     exe: () => Promise<CmdResult>,
@@ -130,6 +135,7 @@ export const defaultCmdDefinitionSettings = {
     cmds: [],
     allowUnknownArgs: false,
     allowUnknownFlags: false,
+    multiValues: false,
     details: undefined,
     alias: [],
     flags: [],
@@ -203,6 +209,96 @@ export const defaultCmdParserSettings: CmdParserSettings = {
     helpFlag: helpFlag
 }
 
+export function parseValueFlag(
+    flag: ValueFlag,
+    flagvalue: string,
+    restArgs: string[],
+    res: CmdResult,
+): void {
+    if (flagvalue.startsWith("\"")) {
+        while (restArgs.length > 0) {
+            flagvalue += restArgs.shift()
+            if (flagvalue.endsWith("\"")) {
+                break
+            }
+        }
+        flagvalue = flagvalue.slice(1, -1)
+    }
+    let value: any = undefined
+    let tmp: any = flagvalue.toLowerCase()
+    if (flag.types.includes("boolean")) {
+        if (tmp == "true") {
+            value = true
+        } else if (tmp == "false") {
+            value = false
+        }
+    }
+    if (
+        !value &&
+        flag.types.includes("number")
+    ) {
+        tmp = Number(flagvalue)
+        if (!isNaN(tmp)) {
+            value = flagvalue
+        }
+    }
+    if (
+        !value &&
+        flag.types.includes("string")
+    ) {
+        value = flagvalue
+    }
+    flag.types.forEach((type) => {
+        if (typeof type == "string") {
+            return
+        }
+        value = type.validate(flagvalue)
+    })
+    if (value == undefined) {
+        throw new CmdError(
+            "Type of '" + flag.name +
+            "' needs to be a '" +
+            flag.types.map(
+                (t) => typeof t == "string" ?
+                    t :
+                    t.name
+            ).join("', '") + "'!"
+        )
+    }
+    if (flag.multiValues) {
+        if (!res.arrayFlags[flag.name]) {
+            res.arrayFlags[flag.name] = []
+        }
+        res.arrayFlags[flag.name].push(value)
+        if (flag.exe) {
+            res.exeValueFlags.push([value, flag])
+        }
+    } else {
+        if (typeof res.valueFlags[flag.name] == "string") {
+            throw new Error(
+                "Value flag for '" + flag.name +
+                "' is set multiple times but is just allows once"
+            )
+        }
+        res.valueFlags[flag.name] = value
+        if (flag.exe) {
+            res.exeValueFlags.push([value, flag])
+        }
+    }
+}
+
+export function parseFlag(
+    flag: BoolFlag,
+    res: CmdResult,
+): void {
+    if (!res.flags.includes(flag.name)) {
+        res.flags.push(flag.name)
+        if (flag.exe) {
+            res.exeFlags.push(flag)
+        }
+    }
+}
+
 export function parseCmd(
     options: CmdParserOptions
 ): CmdResult {
@@ -226,6 +322,7 @@ export function parseCmd(
         cmd: settings.cmd,
         args: [],
         flags: [],
+        arrayFlags: {},
         valueFlags: {},
         parents: [settings.cmd],
         settings: settings,
@@ -274,8 +371,9 @@ export function parseCmd(
             }
         }
 
-        for (let index = 0; index < restArgs.length; index++) {
-            const arg: string = restArgs[index]
+
+        while (restArgs.length > 0) {
+            const arg: string = restArgs.shift()
             const lowerArg: string = arg.toLowerCase()
             if (arg == "") {
                 continue
@@ -287,115 +385,51 @@ export function parseCmd(
                     res.flags.push("help")
                 }
             } else if (arg.startsWith("--")) {
-                let flagName: string = arg.substring(2).toLowerCase()
-                let flagValue: string = ""
-
-                const equalIndex: number = flagName.indexOf("=")
-                if (equalIndex != -1) {
-                    flagValue = flagName.substring(equalIndex + 1)
-                    flagName = flagName.substring(0, equalIndex)
+                const equalIndex: number = arg.indexOf("=")
+                let flagname: string
+                let flagvalue: string = undefined
+                if (equalIndex == -1) {
+                    flagname = arg.substring(2)
+                } else {
+                    flagname = arg.substring(2, equalIndex)
+                    flagvalue = arg.substring(equalIndex + 1)
+                }
+                if (flagname.length == 0) {
+                    throw new Error("Empty flag!")
                 }
                 let found: boolean = false
-                for (let index2 = 0; index2 < res.cmd.flags.length; index2++) {
+                for (
+                    let index2 = 0;
+                    index2 < res.cmd.flags.length;
+                    index2++
+                ) {
                     const flag = res.cmd.flags[index2]
+                    if (flag.alias) {
+                        if (!flag.alias.includes(flagname)) {
+
+                        }
+                    }
                     if (
-                        flag.name.toLowerCase() == flagName ||
-                        (flag.alias && flag.alias.includes(flagName)
+                        flag.name.toLowerCase() != flagname && (
+                            !flag.alias ||
+                            !flag.alias.includes(flagname)
                         )
                     ) {
-                        if (
-                            flag.types &&
-                            flag.types.length > 0
-                        ) {
-                            if (
-                                flagValue.length == 0 &&
-                                index + 1 < restArgs.length
-                            ) {
-                                flagValue = restArgs[index + 1]
-                                index++
-                            }
-                            if (flagValue.length == 0) {
-                                throw new CmdError(
-                                    "Missing value for flag: \"--" +
-                                    flag.name + "\""
-                                )
-                            }
-                            if (flagValue.startsWith("\"")) {
-                                while (true) {
-                                    let next: string = restArgs[index + 1]
-                                    flagValue += " " + next
-                                    index++
-                                    if (next.endsWith("\"")) {
-                                        break
-                                    }
-                                }
-                                flagValue = flagValue.slice(1, -1)
-                            }
-                            let value: any = undefined
-                            let tmp: any = flagValue.toLowerCase()
-                            if (flag.types.includes("boolean")) {
-                                if (tmp == "true") {
-                                    value = true
-                                } else if (tmp == "false") {
-                                    value = false
-                                }
-                            }
-                            if (
-                                !value &&
-                                flag.types.includes("number")
-                            ) {
-                                tmp = Number(flagValue)
-                                if (!isNaN(tmp)) {
-                                    value = flagValue
-                                }
-                            }
-                            if (
-                                !value &&
-                                flag.types.includes("string")
-                            ) {
-                                value = flagValue
-                            }
-                            flag.types.forEach((type) => {
-                                if (typeof type == "string") {
-                                    return
-                                }
-                                value = type.validate(flagValue)
-                            })
-                            if (value == undefined) {
-                                throw new CmdError(
-                                    "Type of '" + flag.name +
-                                    "' needs to be a '" +
-                                    flag.types.map(
-                                        (t) => typeof t == "string" ?
-                                            t :
-                                            t.name
-                                    ).join("', '") + "'!"
-                                )
-                            }
-                            if (!res.valueFlags[flag.name]) {
-                                res.valueFlags[flag.name] = []
-                            }
-                            res.valueFlags[flag.name].push(value)
-                            if (flag.exe) {
-                                res.exeValueFlags.push([value, flag])
-                            }
-                        } else {
-                            if (flagValue.length > 0) {
-                                throw new CmdError(
-                                    "Too many values for flag: \"--" +
-                                    flag.name + "\""
-                                )
-                            }
-                            if (!res.flags.includes(flag.name)) {
-                                res.flags.push(flag.name)
-                                if (flag.exe) {
-                                    res.exeFlags.push(flag)
-                                }
-                            }
-                        }
-                        found = true
-                        break
+                        continue
                     }
+                    flag.types && flag.types.length > 0 ?
+                        parseValueFlag(
+                            flag as ValueFlag,
+                            flagvalue ?? restArgs.shift(),
+                            restArgs,
+                            res
+                        ) :
+                        parseFlag(
+                            flag as BoolFlag,
+                            res
+                        )
+                    found = true
+                    break
                 }
                 if (!found) {
                     if (res.cmd.allowUnknownFlags) {
@@ -403,7 +437,7 @@ export function parseCmd(
                         continue
                     }
                     throw new CmdError(
-                        "Unknown flag: \"--" + flagName + "\""
+                        "Unknown flag: \"--" + flagname + "\""
                     )
                 }
             } else if (arg.startsWith("-")) {
@@ -411,16 +445,14 @@ export function parseCmd(
                 for (let index2 = shorthands.length - 1; index2 >= 0; index2--) {
                     const shorthand = shorthands[index2]
                     let found: boolean = false
-                    for (let index3 = 0; index3 < res.cmd.flags.length; index3++) {
-                        const flag = res.cmd.flags[index3];
+                    for (const flag of res.cmd.flags) {
                         if (
                             flag.shorthand &&
                             flag.shorthand == shorthand
                         ) {
                             restArgs = [
-                                ...restArgs.slice(0, index + 1),
                                 "--" + flag.name,
-                                ...restArgs.slice(index + 1)
+                                ...restArgs
                             ]
                             found = true
                             break
@@ -437,11 +469,6 @@ export function parseCmd(
                         )
                     }
                 }
-                restArgs = [
-                    ...restArgs.slice(0, index),
-                    ...restArgs.slice(index + 1)
-                ]
-                index--
             } else {
                 if (!res.cmd.allowUnknownArgs) {
                     throw new CmdError(
@@ -464,7 +491,11 @@ export function parseCmd(
                     type == "number" ||
                     type == "boolean"
                 ) {
-                    res.valueFlags[flag.name] = ["" + flag.default]
+                    if (flag.multiValues) {
+                        res.arrayFlags[flag.name] = ["" + flag.default]
+                    } else {
+                        res.valueFlags[flag.name] = "" + flag.default
+                    }
                 } else if (flag.required) {
                     throw new CmdError(
                         "Flag '" + flag.name +
@@ -481,7 +512,11 @@ export function parseCmd(
                     type == "number" ||
                     type == "boolean"
                 ) {
-                    res.valueFlags[flag.name] = ["" + flag.default]
+                    if (flag.multiValues) {
+                        res.arrayFlags[flag.name] = ["" + flag.default]
+                    } else {
+                        res.valueFlags[flag.name] = "" + flag.default
+                    }
                 } else if (flag.required) {
                     throw new CmdError(
                         "Flag '" + flag.name +
@@ -505,8 +540,10 @@ export function parseCmd(
         if (!Array.isArray(f.types)) {
             return
         }
-        if (!res.valueFlags[f.name]) {
-            res.valueFlags[f.name] = []
+        if (!res.arrayFlags[f.name]) {
+            if (f.multiValues) {
+                res.arrayFlags[f.name] = []
+            }
         }
     })
     res.exeFlags = res.exeFlags.sort(
@@ -523,7 +560,7 @@ export function parseCmd(
         } else {
             res.exe = async () => {
                 for (const flag of res.exeFlags) {
-                    await flag.exe(res)
+                    await flag.exe(res, flag.name)
                 }
                 for (const flag of res.exeValueFlags) {
                     await flag[1].exe(res, flag[0])

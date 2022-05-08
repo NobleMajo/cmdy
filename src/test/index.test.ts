@@ -104,7 +104,11 @@ describe('base cmd tests', () => {
 
         let res = parseCmd({
             cmd: simpleCmd,
-            args: ["--qwe1", "test", "--test"]
+            args: [
+                "--qwe1",
+                "test",
+                "--test",
+            ],
         })
 
         expect(exec).is.false
@@ -117,12 +121,12 @@ describe('base cmd tests', () => {
         expect(res.flags.includes("test")).is.true
         expect(res.flags.includes("qwer")).is.false
 
+        expect(Object.keys(res.valueFlags).length).is.equals(1)
         expect(res.valueFlags.qwe1).is.not.undefined
-        expect(res.valueFlags.qwe2).is.not.undefined
-        expect(res.valueFlags.qwe1.length).is.equals(1)
-        expect(res.valueFlags.qwe2.length).is.equals(0)
+        expect(typeof res.valueFlags.qwe1).is.equals("string")
+        expect(res.valueFlags.qwe1).is.equals("test")
 
-        expect(res.valueFlags.qwe1[0]).is.equals("test")
+        expect(Object.keys(res.arrayFlags).length).is.equals(0)
     })
 })
 
@@ -220,11 +224,8 @@ describe('unknown args tests', () => {
         expect(res.flags.includes("qwer")).is.false
 
         expect(res.valueFlags.qwe1).is.not.undefined
-        expect(res.valueFlags.qwe2).is.not.undefined
-        expect(res.valueFlags.qwe1.length).is.equals(1)
-        expect(res.valueFlags.qwe2.length).is.equals(0)
-
-        expect(res.valueFlags.qwe1[0]).is.equals("test")
+        expect(typeof res.valueFlags.qwe1).is.equals("string")
+        expect(res.valueFlags.qwe1).is.equals("test")
     })
 
     it("allow just args", async () => {
@@ -275,10 +276,8 @@ describe('unknown args tests', () => {
         expect(res.flags.includes("test")).is.false
         expect(res.flags.includes("qwer")).is.false
 
-        expect(res.valueFlags.qwe1).is.not.undefined
-        expect(res.valueFlags.qwe2).is.not.undefined
-        expect(res.valueFlags.qwe1.length).is.equals(0)
-        expect(res.valueFlags.qwe2.length).is.equals(0)
+        expect(typeof res.valueFlags).is.equals("object")
+        expect(Object.keys(res.valueFlags).length).is.equals(0)
     })
 })
 
@@ -308,8 +307,7 @@ describe('required flag', () => {
         expect(res.err).is.undefined
         expect(typeof res.cmd).is.equals("object")
         expect(typeof res.valueFlags).is.equals("object")
-        expect(typeof res.valueFlags.path).is.equals("object")
-        expect(Array.isArray(res.valueFlags.path)).is.true
+        expect(typeof res.valueFlags.path).is.equals("string")
         expect(typeof res.valueFlags.path[0]).is.equals("string")
     })
 
@@ -540,6 +538,7 @@ const execFlagCmd: CmdDefinition = {
             description: "some path flag",
             shorthand: "p",
             types: ["string"],
+            multiValues: true,
             exe(res, value) {
                 path.push(value)
             }
@@ -549,6 +548,7 @@ const execFlagCmd: CmdDefinition = {
             description: "some number flag",
             shorthand: "n",
             types: ["number"],
+            multiValues: true,
             exe(res, value) {
                 number.push(value)
             }
@@ -592,9 +592,13 @@ describe('executable flags', () => {
 
         expect(res.valueFlags).is.not.undefined
         expect(getType(res.valueFlags)).is.equals("object")
-        expect(Object.keys(res.valueFlags).length).is.equals(2)
-        expect(Object.keys(res.valueFlags.path).length).is.equals(0)
-        expect(Object.keys(res.valueFlags.number).length).is.equals(0)
+        expect(Object.keys(res.valueFlags).length).is.equals(0)
+
+        expect(res.arrayFlags).is.not.undefined
+        expect(getType(res.arrayFlags)).is.equals("object")
+        expect(Object.keys(res.arrayFlags).length).is.equals(2)
+        expect(Object.keys(res.arrayFlags.path).length).is.equals(0)
+        expect(Object.keys(res.arrayFlags.number).length).is.equals(0)
     })
 
     it("check with verbose", async () => {
@@ -624,9 +628,13 @@ describe('executable flags', () => {
 
         expect(res.valueFlags).is.not.undefined
         expect(getType(res.valueFlags)).is.equals("object")
-        expect(Object.keys(res.valueFlags).length).is.equals(2)
-        expect(Object.keys(res.valueFlags.path).length).is.equals(0)
-        expect(Object.keys(res.valueFlags.number).length).is.equals(0)
+        expect(Object.keys(res.valueFlags).length).is.equals(0)
+
+        expect(res.arrayFlags).is.not.undefined
+        expect(getType(res.arrayFlags)).is.equals("object")
+        expect(Object.keys(res.arrayFlags).length).is.equals(2)
+        expect(Object.keys(res.arrayFlags.path).length).is.equals(0)
+        expect(Object.keys(res.arrayFlags.number).length).is.equals(0)
     })
 
     it("check with one path", async () => {
@@ -657,10 +665,14 @@ describe('executable flags', () => {
 
         expect(res.valueFlags).is.not.undefined
         expect(getType(res.valueFlags)).is.equals("object")
-        expect(Object.keys(res.valueFlags).length).is.equals(2)
-        expect(Object.keys(res.valueFlags.path).length).is.equals(1)
-        expect(res.valueFlags.path[0]).is.equals("/var/www/html")
-        expect(Object.keys(res.valueFlags.number).length).is.equals(0)
+        expect(Object.keys(res.valueFlags).length).is.equals(0)
+
+        expect(res.arrayFlags).is.not.undefined
+        expect(getType(res.arrayFlags)).is.equals("object")
+        expect(Object.keys(res.arrayFlags).length).is.equals(2)
+        expect(Object.keys(res.arrayFlags.path).length).is.equals(1)
+        expect(res.arrayFlags.path[0]).is.equals("/var/www/html")
+        expect(Object.keys(res.arrayFlags.number).length).is.equals(0)
     })
 
     it("check with multiple paths", async () => {
@@ -701,15 +713,19 @@ describe('executable flags', () => {
 
         expect(res.valueFlags).is.not.undefined
         expect(getType(res.valueFlags)).is.equals("object")
-        expect(Object.keys(res.valueFlags).length).is.equals(2)
-        expect(Object.keys(res.valueFlags.path).length).is.equals(4)
-        expect(JSON.stringify(res.valueFlags.path)).is.equals(JSON.stringify([
+        expect(Object.keys(res.valueFlags).length).is.equals(0)
+
+        expect(res.arrayFlags).is.not.undefined
+        expect(getType(res.arrayFlags)).is.equals("object")
+        expect(Object.keys(res.arrayFlags).length).is.equals(2)
+        expect(Object.keys(res.arrayFlags.path).length).is.equals(4)
+        expect(JSON.stringify(res.arrayFlags.path)).is.equals(JSON.stringify([
             "/var/www/html",
             "/some/new/path",
             "/some/old/path",
             "/test/path"
         ]))
-        expect(Object.keys(res.valueFlags.number).length).is.equals(0)
+        expect(res.valueFlags.number).is.undefined
     })
 
     it("check with multiple paths and numbers and verbose", async () => {
@@ -765,16 +781,20 @@ describe('executable flags', () => {
 
         expect(res.valueFlags).is.not.undefined
         expect(getType(res.valueFlags)).is.equals("object")
-        expect(Object.keys(res.valueFlags).length).is.equals(2)
-        expect(Object.keys(res.valueFlags.path).length).is.equals(4)
-        expect(JSON.stringify(res.valueFlags.path)).is.equals(JSON.stringify([
+        expect(Object.keys(res.valueFlags).length).is.equals(0)
+
+        expect(res.arrayFlags).is.not.undefined
+        expect(getType(res.arrayFlags)).is.equals("object")
+        expect(Object.keys(res.arrayFlags).length).is.equals(2)
+        expect(Object.keys(res.arrayFlags.path).length).is.equals(4)
+        expect(JSON.stringify(res.arrayFlags.path)).is.equals(JSON.stringify([
             "/var/www/html",
             "/some/new/path",
             "/some/old/path",
             "/test/path"
         ]))
-        expect(Object.keys(res.valueFlags.number).length).is.equals(6)
-        expect(JSON.stringify(res.valueFlags.number)).is.equals(JSON.stringify([
+        expect(Object.keys(res.arrayFlags.number).length).is.equals(6)
+        expect(JSON.stringify(res.arrayFlags.number)).is.equals(JSON.stringify([
             "1",
             "2",
             "3",
@@ -866,16 +886,20 @@ describe('executable flags', () => {
 
         expect(res.valueFlags).is.not.undefined
         expect(getType(res.valueFlags)).is.equals("object")
-        expect(Object.keys(res.valueFlags).length).is.equals(2)
-        expect(Object.keys(res.valueFlags.path).length).is.equals(4)
-        expect(JSON.stringify(res.valueFlags.path)).is.equals(JSON.stringify([
+        expect(Object.keys(res.valueFlags).length).is.equals(0)
+
+        expect(res.arrayFlags).is.not.undefined
+        expect(getType(res.arrayFlags)).is.equals("object")
+        expect(Object.keys(res.arrayFlags).length).is.equals(2)
+        expect(Object.keys(res.arrayFlags.path).length).is.equals(4)
+        expect(JSON.stringify(res.arrayFlags.path)).is.equals(JSON.stringify([
             "/var/www/html",
             "/some/new/path",
             "/some/old/path",
             "/test/path"
         ]))
-        expect(Object.keys(res.valueFlags.number).length).is.equals(6)
-        expect(JSON.stringify(res.valueFlags.number)).is.equals(JSON.stringify([
+        expect(Object.keys(res.arrayFlags.number).length).is.equals(6)
+        expect(JSON.stringify(res.arrayFlags.number)).is.equals(JSON.stringify([
             "1",
             "2",
             "3",
@@ -968,16 +992,20 @@ describe('executable flags', () => {
 
         expect(res.valueFlags).is.not.undefined
         expect(getType(res.valueFlags)).is.equals("object")
-        expect(Object.keys(res.valueFlags).length).is.equals(2)
-        expect(Object.keys(res.valueFlags.path).length).is.equals(4)
-        expect(JSON.stringify(res.valueFlags.path)).is.equals(JSON.stringify([
+        expect(Object.keys(res.valueFlags).length).is.equals(0)
+
+        expect(res.arrayFlags).is.not.undefined
+        expect(getType(res.arrayFlags)).is.equals("object")
+        expect(Object.keys(res.arrayFlags).length).is.equals(2)
+        expect(Object.keys(res.arrayFlags.path).length).is.equals(4)
+        expect(JSON.stringify(res.arrayFlags.path)).is.equals(JSON.stringify([
             "/var/www/html",
             "/some/new/path",
             "/some/old/path",
-            "/test/path"
+            "/test/path",
         ]))
-        expect(Object.keys(res.valueFlags.number).length).is.equals(6)
-        expect(JSON.stringify(res.valueFlags.number)).is.equals(JSON.stringify([
+        expect(Object.keys(res.arrayFlags.number).length).is.equals(6)
+        expect(JSON.stringify(res.arrayFlags.number)).is.equals(JSON.stringify([
             "1",
             "2",
             "3",
@@ -986,9 +1014,6 @@ describe('executable flags', () => {
             "6",
         ]))
     })
-
-
-
 })
 
 
