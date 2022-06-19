@@ -560,7 +560,7 @@ export function parseCmd(
         } else {
             res.exe = async () => {
                 for (const flag of res.exeFlags) {
-                    await flag.exe(res, flag.name)
+                    await flag.exe(res, undefined)
                 }
                 for (const flag of res.exeValueFlags) {
                     await flag[1].exe(res, flag[0])

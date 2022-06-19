@@ -281,7 +281,6 @@ describe('unknown args tests', () => {
     })
 })
 
-
 const requireCmd: CmdDefinition = {
     name: "test",
     description: "some test command",
@@ -294,7 +293,6 @@ const requireCmd: CmdDefinition = {
         }
     ]
 }
-
 
 describe('required flag', () => {
     it("require flag test", async () => {
