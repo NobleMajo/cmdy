@@ -1,7 +1,7 @@
 {
   "name": "cmdy",
   "description": "A simple cmd parser framework for node js/ts cli apps.",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "main": "dist/index.js",
   "author": "majo418",
   "license": "MIT",

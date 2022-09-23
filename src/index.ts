@@ -152,7 +152,9 @@ export function fillCmdDefinitionRecursive(
         ...cmd,
         name: cmd.name.toLowerCase(),
         alias: cmd.alias ?
-            cmd.alias.map((a) => a.toLowerCase()) :
+            cmd.alias.map(
+                (a) => a.toLowerCase()
+            ) :
             []
     }
     cmd2.flags = [
@@ -331,7 +333,14 @@ export function parseCmd(
         meta: {},
         helpResult: false,
         exeFlags: [],
-        exeValueFlags: [],
+        exeValueFlags: [], 
+    }
+    if (settings.cmd.flags) {
+        for (const flag of settings.cmd.flags) {
+            if (Array.isArray(flag.types) && flag.types.length > 0) {
+
+            }
+        }
     }
 
     while (restArgs.length > 0) {
@@ -371,112 +380,12 @@ export function parseCmd(
             }
         }
 
-
         while (restArgs.length > 0) {
-            const arg: string = restArgs.shift()
-            const lowerArg: string = arg.toLowerCase()
-            if (arg == "") {
-                continue
-            } else if (
-                lowerArg == "--help" ||
-                lowerArg == "-h"
-            ) {
-                if (!res.flags.includes("help")) {
-                    res.flags.push("help")
-                }
-            } else if (arg.startsWith("--")) {
-                const equalIndex: number = arg.indexOf("=")
-                let flagname: string
-                let flagvalue: string = undefined
-                if (equalIndex == -1) {
-                    flagname = arg.substring(2)
-                } else {
-                    flagname = arg.substring(2, equalIndex)
-                    flagvalue = arg.substring(equalIndex + 1)
-                }
-                if (flagname.length == 0) {
-                    throw new Error("Empty flag!")
-                }
-                let found: boolean = false
-                for (
-                    let index2 = 0;
-                    index2 < res.cmd.flags.length;
-                    index2++
-                ) {
-                    const flag = res.cmd.flags[index2]
-                    if (flag.alias) {
-                        if (!flag.alias.includes(flagname)) {
-
-                        }
-                    }
-                    if (
-                        flag.name.toLowerCase() != flagname && (
-                            !flag.alias ||
-                            !flag.alias.includes(flagname)
-                        )
-                    ) {
-                        continue
-                    }
-                    flag.types && flag.types.length > 0 ?
-                        parseValueFlag(
-                            flag as ValueFlag,
-                            flagvalue ?? restArgs.shift(),
-                            restArgs,
-                            res
-                        ) :
-                        parseFlag(
-                            flag as BoolFlag,
-                            res
-                        )
-                    found = true
-                    break
-                }
-                if (!found) {
-                    if (res.cmd.allowUnknownFlags) {
-                        res.args.push(arg)
-                        continue
-                    }
-                    throw new CmdError(
-                        "Unknown flag: \"--" + flagname + "\""
-                    )
-                }
-            } else if (arg.startsWith("-")) {
-                const shorthands: string[] = arg.substring(1).split("")
-                for (let index2 = shorthands.length - 1; index2 >= 0; index2--) {
-                    const shorthand = shorthands[index2]
-                    let found: boolean = false
-                    for (const flag of res.cmd.flags) {
-                        if (
-                            flag.shorthand &&
-                            flag.shorthand == shorthand
-                        ) {
-                            restArgs = [
-                                "--" + flag.name,
-                                ...restArgs
-                            ]
-                            found = true
-                            break
-                        }
-                    }
-                    if (!found) {
-                        if (res.cmd.allowUnknownFlags) {
-                            res.args.push(arg)
-                            continue
-                        }
-                        throw new CmdError(
-                            "Unknown shorthand flag: \"-" + shorthand +
-                            "\""
-                        )
-                    }
-                }
-            } else {
-                if (!res.cmd.allowUnknownArgs) {
-                    throw new CmdError(
-                        "Unknown command argument: \"" + arg + "\""
-                    )
-                }
-                res.args.push(arg)
-            }
+            parseArg(
+                restArgs.shift(),
+                res,
+                restArgs,
+            )
         }
 
         for (let index = 0; index < res.cmd.flags.length; index++) {
@@ -572,6 +481,136 @@ export function parseCmd(
     }
 
     return res
+}
+
+export function parseArg(
+    arg: string,
+    res: CmdResult,
+    restArgs: string[],
+) {
+    const lowerArg: string = arg.toLowerCase()
+    if (arg == "") {
+        return
+    } else if (
+        lowerArg == "--help" ||
+        lowerArg == "-h"
+    ) {
+        if (!res.flags.includes("help")) {
+            res.flags.push("help")
+        }
+    } else if (arg.startsWith("--")) {
+        const found = parseAnyFlag(
+            arg,
+            res,
+            restArgs
+        )
+        if (!found) {
+            if (res.cmd.allowUnknownFlags) {
+                res.args.push(arg)
+                return
+            }
+            throw new CmdError(
+                "Unknown flag: \"" + arg + "\""
+            )
+        }
+    } else if (arg.startsWith("-")) {
+        parseShorthandFlag(
+            arg,
+            res,
+            restArgs
+        )
+    } else {
+        if (!res.cmd.allowUnknownArgs) {
+            throw new CmdError(
+                "Unknown command argument: \"" + arg + "\""
+            )
+        }
+        res.args.push(arg)
+    }
+}
+
+export function parseShorthandFlag(
+    arg: string,
+    res: CmdResult,
+    restArgs: string[],
+): void {
+    const shorthands: string[] = arg.substring(1).split("")
+    for (let index2 = shorthands.length - 1; index2 >= 0; index2--) {
+        const shorthand = shorthands[index2]
+        let found: boolean = false
+        for (const flag of res.cmd.flags) {
+            if (
+                flag.shorthand &&
+                flag.shorthand == shorthand
+            ) {
+                restArgs = [
+                    "--" + flag.name,
+                    ...restArgs
+                ]
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            if (res.cmd.allowUnknownFlags) {
+                res.args.push(arg)
+                continue
+            }
+            throw new CmdError(
+                "Unknown shorthand flag: \"-" + shorthand +
+                "\""
+            )
+        }
+    }
+}
+
+export function parseAnyFlag(
+    arg: string,
+    res: CmdResult,
+    restArgs: string[],
+): boolean {
+    const equalIndex: number = arg.indexOf("=")
+    let flagname: string
+    let flagvalue: string = undefined
+    if (equalIndex == -1) {
+        flagname = arg.substring(2)
+    } else {
+        flagname = arg.substring(2, equalIndex)
+        flagvalue = arg.substring(equalIndex + 1)
+    }
+    if (flagname.length == 0) {
+        throw new Error("Empty flag!")
+    }
+    let found: boolean = false
+    for (
+        let index2 = 0;
+        index2 < res.cmd.flags.length;
+        index2++
+    ) {
+        const flag = res.cmd.flags[index2]
+        if (
+            flag.name.toLowerCase() != flagname && (
+                !flag.alias ||
+                !flag.alias.includes(flagname)
+            )
+        ) {
+            continue
+        }
+        flag.types && flag.types.length > 0 ?
+            parseValueFlag(
+                flag as ValueFlag,
+                flagvalue ?? restArgs.shift(),
+                restArgs,
+                res
+            ) :
+            parseFlag(
+                flag as BoolFlag,
+                res
+            )
+        found = true
+        break
+    }
+    return found
 }
 
 // ##### ##### ##### ##### ##### HelpGenerator ##### ##### ##### ##### #####
