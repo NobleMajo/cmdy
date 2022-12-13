@@ -1,7 +1,7 @@
 {
   "name": "cmdy",
-  "description": "A simple cmd parser framework for node js/ts cli apps.",
-  "version": "1.4.6",
+  "description": "A cli argument and environment variable manager",
+  "version": "2.0.0-dev.0",
   "main": "dist/index.js",
   "author": "majo418",
   "license": "MIT",
@@ -39,6 +39,7 @@
     "mocha": "9",
     "nodemon": "2",
     "ts-node": "10",
+    "ts-toolbelt": "^9.6.0",
     "typescript": "4"
   }
 }

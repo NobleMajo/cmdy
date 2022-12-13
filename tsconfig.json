@@ -1,5 +1,4 @@
 {
-  "compileOnSave": true,
   "compilerOptions": {
     /* Basic Options */
     "target": "ES5", /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017', 'ES2018', 'ES2019' or 'ESNEXT'. */
@@ -7,7 +6,7 @@
     "lib": [
       "ESNext",
       "ES6",
-      "ES5"
+      "ES5",
     ], /* Specify library files to be included in the compilation. */
     "allowJs": false, /* Allow javascript files to be compiled. */
     // "skipLibCheck": true,
@@ -50,9 +49,6 @@
     "typeRoots": [
       "./node_modules/@types",
     ], /* List of folders to include type definitions from. */
-    "types": [
-      "node"
-    ], /* Type declaration files to be included in compilation. */
     // "allowSyntheticDefaultImports": true,  /* Allow default imports from modules with no default export. This does not affect code emit, just typechecking. */
     // "esModuleInterop": true, /* Enables emit interoperability between CommonJS and ES Modules via creation of namespace objects for all imports. Implies 'allowSyntheticDefaultImports'. */
     // "preserveSymlinks": true,              /* Do not resolve the real path of symlinks. */
@@ -64,6 +60,7 @@
     /* Experimental Options */
     "experimentalDecorators": true, /* Enables experimental support for ES7 decorators. */
     "emitDecoratorMetadata": true, /* Enables experimental support for emitting type metadata for decorators. */
+    "skipLibCheck": true,
   },
   "include": [
     "src/**/*.ts",
