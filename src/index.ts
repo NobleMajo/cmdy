@@ -15,7 +15,7 @@ export class CmdError extends Error {
 
 export interface InputValidator {
     name: string,
-    validate: (value: any) => Awaitable<any | undefined>
+    validate: (value: any) => Awaitable<any | undefined>,
 }
 
 export type FlagValueTypes = "string" | "number" | "boolean" | InputValidator
@@ -26,7 +26,7 @@ export interface Flag {
     displayName?: string,
     required?: boolean,
     default?: string | number | boolean,
-    types?: FlagValueTypes[]
+    types?: FlagValueTypes[],
     shorthand?: string,
     alias?: string[],
     control?: (value: string) => Awaitable<string>,
