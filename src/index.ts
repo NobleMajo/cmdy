@@ -565,7 +565,7 @@ export function parseCmd(
                 for (const flag of res.exeValueFlags) {
                     await flag[1].exe(res, flag[0])
                 }
-                res.cmd.exe(res)
+                await res.cmd.exe(res)
                 return res
             }
         }
