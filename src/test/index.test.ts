@@ -515,6 +515,78 @@ describe('sub commands tests', () => {
     })
 })
 
+describe('async sub commands tests', () => {
+
+    let result = []
+    const awaitDuration = 500
+
+    const subCmdAsync: CmdDefinition = {
+        name: "sub",
+        description: "some sub command",
+        flags: [],
+        allowUnknownArgs: true,
+        allowUnknownFlags: true,
+        exe: async () => {
+            await new Promise( resolve => setTimeout(() => {
+                result.push('sub')
+                resolve(undefined)
+            }, awaitDuration) )
+        }
+    }
+
+    const subCmdWithAsyncSub: CmdDefinition = {
+        name: "subsub",
+        description: "some sub command",
+        flags: [],
+        allowUnknownArgs: true,
+        allowUnknownFlags: true,
+        cmds: [subCmdAsync],
+    }
+    
+    const superCmdAsync: CmdDefinition = {
+        name: "root",
+        description: "some super root command",
+        flags: [
+        ],
+        allowUnknownArgs: false,
+        allowUnknownFlags: true,
+        cmds: [
+            subCmdAsync,
+            subCmdWithAsyncSub,
+        ],
+    }
+
+    beforeEach(() => {
+        result = []
+    });
+
+    it("check async sub cmd without arg", async () => {
+        result.push('start')
+
+        let res = await parseCmd({
+            cmd: superCmdAsync,
+            args: ["sub"],
+        }).exe()
+
+        result.push('end')
+
+        expect(result).deep.eq(['start', 'sub', 'end'])
+    }).timeout(awaitDuration + 500)
+
+    it("check async sub sub cmd without arg", async () => {
+        result.push('start')
+
+        let res = await parseCmd({
+            cmd: superCmdAsync,
+            args: ["subsub", "sub"],
+        }).exe()
+
+        result.push('end')
+
+        expect(result).deep.eq(['start', 'sub', 'end'])
+    }).timeout(awaitDuration + 500)
+})
+
 let verbose: boolean
 let path: string[]
 let number: string[]
